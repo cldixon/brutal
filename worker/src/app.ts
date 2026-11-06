@@ -408,7 +408,12 @@ export function createApp(overrides: Partial<Deps> = {}) {
 
   // Everything else is the web app (static assets, which answer before the Worker in
   // production; this covers local tools that send every request here).
-  app.all("*", (c) => (c.env.ASSETS ? c.env.ASSETS.fetch(c.req.raw) : c.notFound()));
+  // A copy, since an assets response's headers are immutable and every response gets nosniff.
+  app.all("*", async (c) => {
+    if (!c.env.ASSETS) return c.notFound();
+    const res = await c.env.ASSETS.fetch(c.req.raw);
+    return new Response(res.body, res);
+  });
 
   return app;
 }
