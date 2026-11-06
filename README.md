@@ -98,9 +98,11 @@ a workflow once it exists.
 
 ## Develop
 
-`worker/brutal.config.json` (gitignored) holds the settings of the instance deployed from this
-repo; `bun run --cwd worker setup` writes it, and `bun run deploy` deploys with it. CI uses
-`brutal.config.example.json` through `BRUTAL_CONFIG`. `bun run dev` needs no settings.
+`bun run dev` needs no settings. To deploy a test instance from source, `bun run --cwd worker
+setup` writes a gitignored `worker/brutal.config.json`, and `bun run deploy` uses it; CI uses
+`brutal.config.example.json` through `BRUTAL_CONFIG`. Real instances, the reference one
+included ([cldixon/cldixon-brutal](https://github.com/cldixon/cldixon-brutal)), deploy from
+their own folders made by `bun create brutal-ai`.
 
 ## Layout
 
