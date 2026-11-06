@@ -6,6 +6,8 @@ export type BrutalConfig = {
   database?: string;
   /** Custom domain on a zone in your Cloudflare account. Without one, workers.dev serves it. */
   domain?: string | null;
+  /** Cloudflare Access in front of /dashboard; `brutal-server access` sets it up. */
+  access?: { emails: string[]; team?: string; aud?: string } | null;
 };
 
 /**

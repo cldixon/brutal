@@ -157,12 +157,14 @@ describe("HTTP API", () => {
 
   test("the dashboard takes the read key over Basic auth and escapes reports", async () => {
     const { as, call, ingest, read } = await setup();
-    expect((await call("/")).status).toBe(401);
+    expect((await call("/dashboard")).status).toBe(401);
     await as(ingest, "/v1/reports", {
       method: "POST",
       body: JSON.stringify({ ...report, title: "<script>x</script>" }),
     });
-    const page = await call("/", { headers: { authorization: `Basic ${btoa(`me:${read}`)}` } });
+    const page = await call("/dashboard", {
+      headers: { authorization: `Basic ${btoa(`me:${read}`)}` },
+    });
     expect(page.status).toBe(200);
     const text = await page.text();
     expect(text).toContain("&lt;script&gt;x&lt;/script&gt;");
@@ -208,5 +210,66 @@ describe("MCP", () => {
       arguments: { id: reports[0].id, status: "triaged" },
     });
     expect(JSON.parse((updated.content as { text: string }[])[0].text).status).toBe("triaged");
+  });
+});
+
+describe("dashboard sign-in with Cloudflare Access", async () => {
+  const { accessSigner } = await import("./jwt");
+  const signer = await accessSigner();
+  const team = "example.cloudflareaccess.com";
+
+  async function withAccess() {
+    const app = createApp({ accessKeys: async () => [signer.jwk] });
+    const env = {
+      DB: bunD1(),
+      SETUP_CODE: "s3cret",
+      ACCESS_TEAM: team,
+      ACCESS_AUD: "aud-1",
+      ACCESS_EMAILS: "owner@example.com",
+    };
+    const call = (path: string, init: RequestInit = {}) =>
+      app.request(`http://localhost${path}`, init, env);
+    const page = await (await call("/setup", claimWith("s3cret"))).text();
+    const read = page.match(/brutal_read_[\w-]+/)?.[0] ?? "";
+    return { call, read };
+  }
+  const token = (email: string) =>
+    signer.sign({
+      aud: ["aud-1"],
+      iss: `https://${team}`,
+      email,
+      exp: Date.now() / 1000 + 600,
+    });
+
+  test("Access's token for an allowed email opens the dashboard, with a way to sign out", async () => {
+    const { call } = await withAccess();
+    const res = await call("/dashboard", {
+      headers: { "cf-access-jwt-assertion": await token("owner@example.com") },
+    });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain("owner@example.com");
+    expect(text).toContain("/cdn-cgi/access/logout");
+  });
+
+  test("no token, another email, or the read key: refused", async () => {
+    const { call, read } = await withAccess();
+    expect((await call("/dashboard")).status).toBe(403);
+    const other = await call("/dashboard", {
+      headers: { "cf-access-jwt-assertion": await token("someone@else.com") },
+    });
+    expect(other.status).toBe(403);
+    const basic = await call("/dashboard", {
+      headers: { authorization: `Basic ${btoa(`me:${read}`)}` },
+    });
+    expect(basic.status).toBe(403);
+  });
+
+  test("the API still takes keys, and old dashboard URLs redirect", async () => {
+    const { call, read } = await withAccess();
+    const list = await call("/v1/reports", { headers: { authorization: `Bearer ${read}` } });
+    expect(list.status).toBe(200);
+    expect((await call("/")).headers.get("location")).toBe("/dashboard");
+    expect((await call("/reports/rep_1")).headers.get("location")).toBe("/dashboard/reports/rep_1");
   });
 });

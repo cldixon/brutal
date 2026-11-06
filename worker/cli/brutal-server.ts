@@ -7,6 +7,8 @@
  *   brutal-server deploy    deploy the Worker; on the very first deploy, also set a setup code
  *                           and print it
  *   brutal-server secrets   set a new setup code (only useful before the instance is claimed)
+ *   brutal-server access    put Cloudflare Access in front of /dashboard (sign in with a code
+ *                           mailed to an allowed email), then deploy; `--dry-run` only says what
  *   brutal-server dev       run it locally on http://localhost:8787
  */
 import { writeFileSync } from "node:fs";
@@ -19,15 +21,16 @@ import {
   loadBrutalConfig,
   readConfigFile,
 } from "../config.ts";
+import { type Cf, ensureAccess, parseCfJson } from "./access.ts";
 
 const root = process.cwd();
 const [command, ...rest] = process.argv.slice(2);
 process.env.CF_SEND_TELEMETRY ??= "false";
 
-const commands: Record<string, () => Promise<void>> = { setup, deploy, secrets, dev };
+const commands: Record<string, () => Promise<void>> = { setup, deploy, secrets, dev, access };
 const run = command ? commands[command] : undefined;
 if (!run) {
-  console.log("Usage: brutal-server <setup|deploy|secrets|dev>");
+  console.log("Usage: brutal-server <setup|deploy|secrets|dev|access>");
   process.exit(command ? 1 : 0);
 }
 await run();
@@ -109,6 +112,58 @@ async function secrets() {
   console.log(`\n✓ SETUP_CODE set on ${worker}`);
   console.log(`\nSetup code: ${setupCode}`);
   console.log("Open /setup on your instance and enter it to make your keys.\n");
+}
+
+async function access() {
+  const dryRun = rest.includes("--dry-run");
+  await requireAuth();
+  const current = readConfigFile(root);
+  const config = loadBrutalConfig(root);
+  if (!config.domain) {
+    console.error(
+      "Access needs a custom domain: run `bun run setup` and give one, deploy, then run this.",
+    );
+    process.exit(1);
+  }
+  let emails = config.access?.emails ?? [];
+  if (emails.length === 0) {
+    const answer = prompt("Email(s) allowed to sign in to the dashboard, comma-separated:");
+    emails = (answer ?? "")
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+
+  const cf: Cf = async (args, body) => {
+    const extra = body === undefined ? [] : ["--body", JSON.stringify(body)];
+    const out = await $`bunx cf zero-trust ${args} ${extra}`.nothrow().quiet();
+    if (out.exitCode !== 0) {
+      throw new Error(
+        `cf zero-trust ${args.join(" ")} failed: ${out.stderr.toString() || out.stdout.toString()}`,
+      );
+    }
+    return parseCfJson(out.stdout.toString());
+  };
+
+  console.log(`\nCloudflare Access for https://${config.domain}/dashboard\n`);
+  const ensured = await ensureAccess(
+    cf,
+    { host: config.domain, worker: config.worker, emails, sessionDuration: "24h" },
+    dryRun,
+  );
+  for (const change of ensured.changes) console.log(`${dryRun ? "Would" : "✓"} ${change}`);
+  if (ensured.changes.length === 0) console.log("✓ Access is already as it should be");
+  if (dryRun) return;
+
+  // Only the access block changes; settings that came from the environment stay out of the file.
+  const next: BrutalConfig = {
+    ...(current ?? config),
+    worker: current?.worker ?? config.worker,
+    access: { emails, team: ensured.team, aud: ensured.aud },
+  };
+  writeFileSync(configPath(root), `${JSON.stringify(next, null, 2)}\n`);
+  console.log(`✓ Wrote the team and application to ${basename(configPath(root))}`);
+  console.log("\nNext: bun run deploy. The dashboard then signs in with a code mailed to you.\n");
 }
 
 async function dev() {

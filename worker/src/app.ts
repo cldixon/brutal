@@ -1,6 +1,7 @@
 import { ReportInput, ReportUpdate, toolDefinition } from "@brutal-ai/schema";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import { accessConfig, fetchedKeys, type KeySource, verifyAccess } from "./access";
 import { reportPage, reportsPage, setupPage } from "./dashboard";
 import { getReport, insertReport, listReports, migrated, updateReport } from "./db";
 import { findKey, type Key, secretFrom } from "./keys";
@@ -11,14 +12,28 @@ export interface Bindings {
   DB: D1Database;
   /** Optional: the setup code, when the deployer sets one; otherwise one is made and logged. */
   SETUP_CODE?: string;
+  /** Cloudflare Access in front of /dashboard, set by `brutal-server access` (src/access.ts). */
+  ACCESS_TEAM?: string;
+  ACCESS_AUD?: string;
+  /** Comma-separated emails the dashboard lets in. */
+  ACCESS_EMAILS?: string;
 }
-type Env = { Bindings: Bindings; Variables: { db: D1Database; key: Key } };
+type Env = { Bindings: Bindings; Variables: { db: D1Database; key: Key; signedIn: SignedIn } };
+
+/** Who is looking at the dashboard, and how they got in. */
+export type SignedIn = { via: "access"; email: string } | { via: "read-key" };
+
+export interface AppOptions {
+  /** Where Access's signing keys come from (tests pass their own). */
+  accessKeys?: KeySource;
+}
 
 const problem = (error: string, status: number, extra: object = {}) =>
   Response.json({ error, ...extra }, { status });
 
-export function createApp() {
+export function createApp(options: AppOptions = {}) {
   const app = new Hono<Env>();
+  const accessKeys = options.accessKeys ?? fetchedKeys();
 
   app.use(async (c, next) => {
     c.set("db", await migrated(c.env.DB));
@@ -85,8 +100,29 @@ export function createApp() {
     return c.html(setupPage({ wrongCode: true }), 403);
   });
 
-  // The dashboard: the browser's own Basic auth prompt, with the read key as the password.
+  /**
+   * The dashboard's sign-in. With Access set up, only Access's token for an allowed email: Access
+   * covers /dashboard at the edge, and this checks its token again. Without it, the browser's own
+   * Basic auth prompt, with the read key as the password.
+   */
   const dashboard = createMiddleware<Env>(async (c, next) => {
+    const access = accessConfig(c.env);
+    if (access) {
+      const verdict = await verifyAccess(
+        c.req.header("cf-access-jwt-assertion"),
+        access,
+        accessKeys,
+      );
+      if (!verdict.ok) {
+        return c.text(
+          "Sign in through Cloudflare Access to see this dashboard. If you came here through it, " +
+            "your email is not one this instance lets in.",
+          403,
+        );
+      }
+      c.set("signedIn", { via: "access", email: verdict.email });
+      return next();
+    }
     const secret = secretFrom(c.req.header("authorization"));
     const key = secret ? await findKey(c.var.db, secret) : null;
     if (key?.kind !== "read") {
@@ -95,18 +131,23 @@ export function createApp() {
         headers: { "WWW-Authenticate": 'Basic realm="brutal", charset="UTF-8"' },
       });
     }
+    c.set("signedIn", { via: "read-key" });
     await next();
   });
 
-  app.get("/", dashboard, async (c) => {
+  // The dashboard lives under /dashboard, so Access can cover it without covering the API.
+  app.get("/", (c) => c.redirect("/dashboard"));
+  app.get("/reports/:id", (c) => c.redirect(`/dashboard/reports/${c.req.param("id")}`, 301));
+
+  app.get("/dashboard", dashboard, async (c) => {
     const q = c.req.query();
     const page = await listReports(c.var.db, q);
-    return c.html(reportsPage(page.reports, q, page.next));
+    return c.html(reportsPage(page.reports, q, page.next, c.var.signedIn));
   });
 
-  app.get("/reports/:id", dashboard, async (c) => {
+  app.get("/dashboard/reports/:id", dashboard, async (c) => {
     const report = await getReport(c.var.db, c.req.param("id"));
-    return report ? c.html(reportPage(report)) : c.notFound();
+    return report ? c.html(reportPage(report, c.var.signedIn)) : c.notFound();
   });
 
   return app;
