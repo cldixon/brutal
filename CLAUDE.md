@@ -29,7 +29,10 @@ Read it before architectural decisions. Where this repo deliberately differs, it
   `BRUTAL_CONFIG` names another file (CI: `brutal.config.example.json`), and a deploy with
   neither fails rather than use defaults. `bun run pack` builds `@brutal-ai/server`,
   `@brutal-ai/schema`, `@brutal-ai/sdk` and `create-brutal-ai` at `worker/package.json`'s
-  version; `release.yml` publishes them on a `v*` tag (npm there only, for trusted publishing).
+  version. Releasing is bumping that version in a PR: on push to `main`, `release.yml` publishes
+  any version not yet on npm (trusted publishing, so npm is used there only) and tags it.
+  `scripts/stage-npm.ts` was the one-time bootstrap (0.0.0-stage placeholders, since npm only
+  trusts a workflow for a package that exists).
 
 ## Deployment
 
