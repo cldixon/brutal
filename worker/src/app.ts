@@ -11,6 +11,9 @@ import {
   EMAIL,
   endSession,
   findKey,
+  adminView,
+  dismiss,
+  invite,
   issueCode,
   joinWaitlist,
   type Key,
@@ -23,6 +26,7 @@ import {
   ownedProject,
   type Project,
   revokeKey,
+  uninvite,
   SESSION_COOKIE,
   SESSION_DAYS,
   sessionUser,
@@ -269,7 +273,53 @@ export function createApp(overrides: Partial<Deps> = {}) {
     await next();
   });
 
-  app.get("/api/me", session, (c) => c.json({ email: c.var.user.email }));
+  const isOperator = (c: C) =>
+    !!c.env.OPERATOR_EMAIL && normalizeEmail(c.env.OPERATOR_EMAIL) === c.var.user.email;
+
+  app.get("/api/me", session, (c) =>
+    c.json({ email: c.var.user.email, operator: isOperator(c) }),
+  );
+
+  // --- The operator's admin page: who waits, invites, accounts (Tempra's /waitlist) ------------
+
+  /** Only OPERATOR_EMAIL; anyone else gets 404, so the page doesn't say it exists. */
+  const operator = createMiddleware<Env>(async (c, next) => {
+    if (!isOperator(c)) return problem("Not found.", 404);
+    await next();
+  });
+
+  app.get("/api/admin", session, operator, async (c) => c.json(await adminView(c.var.db)));
+
+  const AdminEmail = z.object({ email: z.string().trim().toLowerCase().regex(EMAIL).max(254) });
+
+  app.post("/api/admin/invites", session, operator, async (c) => {
+    const parsed = AdminEmail.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return problem("Enter a valid email.", 400);
+    const { email } = parsed.data;
+    const added = await invite(c.var.db, email);
+    const mailer = deps.mailer(c.env);
+    if (added && mailer) {
+      const origin = new URL(c.req.url).origin;
+      await mailer(
+        email,
+        "You're in: Brutal",
+        `You've been invited to Brutal, feedback for agents.\n\nSign in with this email at ${origin}/sign-in\n`,
+      );
+    }
+    return c.json({ invited: email, emailed: added && mailer !== null });
+  });
+
+  app.delete("/api/admin/invites/:email", session, operator, async (c) => {
+    await uninvite(c.var.db, normalizeEmail(c.req.param("email")));
+    return c.json({ ok: true });
+  });
+
+  app.post("/api/admin/waitlist/dismiss", session, operator, async (c) => {
+    const parsed = AdminEmail.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return problem("Enter a valid email.", 400);
+    await dismiss(c.var.db, parsed.data.email);
+    return c.json({ ok: true });
+  });
 
   app.get("/api/projects", session, async (c) =>
     c.json({ projects: await listProjects(c.var.db, c.var.user.id) }),

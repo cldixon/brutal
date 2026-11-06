@@ -54,7 +54,13 @@ const MIGRATIONS: Migration[] = [
     name: "0002_invites_waitlist",
     statements: [
       "CREATE TABLE invites (email TEXT PRIMARY KEY, created_at TEXT NOT NULL)",
-      "CREATE TABLE waitlist (email TEXT PRIMARY KEY, created_at TEXT NOT NULL)",
+      // decision: null while waiting, then 'invited' or 'dismissed' (the operator's call).
+      `CREATE TABLE waitlist (
+        email TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        decision TEXT,
+        decided_at TEXT
+      )`,
     ],
   },
 ];
@@ -241,6 +247,64 @@ export async function joinWaitlist(db: D1Database, email: string): Promise<boole
     .bind(email, now())
     .run();
   return (result.meta.changes ?? 0) > 0;
+}
+
+/** What the operator's admin page shows: who waits, who's invited, who has an account. */
+export interface AdminView {
+  waitlist: { email: string; created_at: string }[];
+  invites: { email: string; created_at: string; signed_up: number }[];
+  users: { email: string; created_at: string; projects: number }[];
+}
+
+export async function adminView(db: D1Database): Promise<AdminView> {
+  const [waitlist, invites, users] = await db.batch([
+    db.prepare(
+      "SELECT email, created_at FROM waitlist WHERE decision IS NULL ORDER BY created_at DESC",
+    ),
+    db.prepare(
+      `SELECT invites.email AS email, invites.created_at AS created_at,
+         EXISTS (SELECT 1 FROM users WHERE users.email = invites.email) AS signed_up
+       FROM invites ORDER BY invites.created_at DESC`,
+    ),
+    db.prepare(
+      `SELECT users.email AS email, users.created_at AS created_at,
+         (SELECT COUNT(*) FROM projects WHERE projects.owner_id = users.id) AS projects
+       FROM users ORDER BY users.created_at DESC`,
+    ),
+  ]);
+  return {
+    waitlist: (waitlist?.results ?? []) as AdminView["waitlist"],
+    invites: (invites?.results ?? []) as AdminView["invites"],
+    users: (users?.results ?? []) as AdminView["users"],
+  };
+}
+
+/** Invites `email` (and closes its waitlist entry); true when it wasn't invited already. */
+export async function invite(db: D1Database, email: string): Promise<boolean> {
+  const [added] = await db.batch([
+    db.prepare("INSERT OR IGNORE INTO invites (email, created_at) VALUES (?, ?)").bind(email, now()),
+    db
+      .prepare(
+        "UPDATE waitlist SET decision = 'invited', decided_at = ? WHERE email = ? AND decision IS NULL",
+      )
+      .bind(now(), email),
+  ]);
+  return (added?.meta.changes ?? 0) > 0;
+}
+
+/** Withdraws an invite; an account made with it stays. */
+export async function uninvite(db: D1Database, email: string): Promise<void> {
+  await db.prepare("DELETE FROM invites WHERE email = ?").bind(email).run();
+}
+
+/** Dismisses a waiting email: it leaves the list and is not invited. */
+export async function dismiss(db: D1Database, email: string): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE waitlist SET decision = 'dismissed', decided_at = ? WHERE email = ? AND decision IS NULL",
+    )
+    .bind(now(), email)
+    .run();
 }
 
 // --- Sessions ---------------------------------------------------------------------------------
