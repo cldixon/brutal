@@ -405,6 +405,8 @@ export function createApp(overrides: Partial<Deps> = {}) {
     return out;
   });
   app.get("/_astro/*", (c) => fromSite(c));
+  // The docs are the site's too: public and static.
+  app.get("/docs", (c) => fromSite(c));
 
   // Everything else is the web app (static assets, which answer before the Worker in
   // production; this covers local tools that send every request here).

@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
         runWorkerFirst: [
           "/",
           "/_astro/*",
+          "/docs",
           "/api/*",
           "/v1/*",
           "/mcp",

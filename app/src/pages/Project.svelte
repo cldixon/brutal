@@ -186,7 +186,7 @@ const olderHref = $derived.by(() => {
   {/if}
 
   <h2>Connect an agent</h2>
-  <p>Two MCP servers. <strong>Feedback</strong>, for the agents using your tools: one tool, <code>report_feedback</code>; they never see the reports.</p>
+  <p>Two MCP servers (<a href="/docs">how they work</a>). <strong>Feedback</strong>, for the agents using your tools: one tool, <code>report_feedback</code>; they never see the reports.</p>
   <code class="block">{feedbackOrigin ?? origin}/mcp</code>
   {#if reviewOrigin}
     <p><strong>Review</strong>, for your coding agent: list, read and triage this project's reports.</p>
