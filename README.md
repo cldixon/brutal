@@ -24,8 +24,12 @@ Ingest keys only submit, so they are safe in an app's backend. Read keys read an
 ```sh
 bun install
 bun run dev                      # cf dev on http://localhost:8787
-open http://localhost:8787/setup # make your keys
+open http://localhost:8787/setup # make your keys with the setup code
 ```
+
+The setup code is the `SETUP_CODE` secret if you set one; otherwise the Worker makes one when
+`/setup` first opens and writes it to its logs (the `cf dev` output locally; Workers Logs in the
+Cloudflare dashboard when deployed). It works once.
 
 File a report:
 
@@ -42,18 +46,47 @@ claude mcp add --transport http brutal http://localhost:8787/mcp --header "Autho
 claude mcp add --transport http brutal-triage http://localhost:8787/mcp --header "Authorization: Bearer $BRUTAL_READ_KEY"
 ```
 
+## The TypeScript SDK
+
+`@brutal/sdk` gives your agent the tool, records its recent tool calls per conversation, and
+attaches them to every report. Delivery never slows or fails the agent's turn.
+
+```ts
+import { createBrutal } from "@brutal/sdk";
+
+const brutal = createBrutal({
+  endpoint: process.env.BRUTAL_URL,
+  ingestKey: process.env.BRUTAL_INGEST_KEY,
+  context: () => ({ app_version: VERSION, environment: "production" }),
+  redact: (report) => report, // scrub, or return null to drop
+});
+
+const convo = brutal.conversation(conversationId);
+const searchParts = convo.wrap("search_parts", rawSearchParts); // recorded from now on
+
+// Anthropic Messages API: tools: [brutal.anthropicTool(), ...]
+// when the model calls report_feedback: tool_result content = await convo.handle(block.input)
+// Vercel AI SDK: tools: { report_feedback: brutal.aiSdkTool(conversationId), ... }
+```
+
+`examples/broken-tools.ts` runs a stand-in agent against deliberately broken tools:
+`BRUTAL_URL=… BRUTAL_INGEST_KEY=… bun run --cwd examples broken-tools`.
+
 ## Deploy
 
 ```sh
 bun run deploy   # cf deploy: creates the D1 database on first deploy
 ```
 
-Then open `/setup` on your Worker's URL straight away. The database migrates itself on first
+Then open `/setup` and enter the setup code. To skip reading the logs, set your own first:
+`bunx cf workers secret put SETUP_CODE` (from `worker/`). The database migrates itself on first
 use; nobody runs a migration.
 
 ## Layout
 
 - `packages/schema`: the report schema (zod), the tool description and its JSON Schema.
-- `worker`: the Worker (Hono): API, MCP, dashboard, D1 migrations.
+- `packages/sdk`: the TypeScript SDK (tool formats, recorder, redaction, delivery).
+- `worker`: the Worker (Hono): API, MCP, dashboard, setup, D1 migrations.
+- `examples`: a stand-in agent against broken tools.
 
 `bun run check` runs lint (Biome), typecheck and tests, as CI does.

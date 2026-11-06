@@ -1,0 +1,16 @@
+{
+  "name": "@brutal/examples",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "broken-tools": "bun broken-tools.ts"
+  },
+  "dependencies": {
+    "@brutal/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.3"
+  }
+}

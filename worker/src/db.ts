@@ -44,6 +44,11 @@ const MIGRATIONS: Migration[] = [
       "CREATE INDEX reports_tool ON reports (tool_name, created_at DESC)",
     ],
   },
+  {
+    // The setup code and the one-time claim (src/setup.ts).
+    name: "0002_settings",
+    statements: ["CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"],
+  },
 ];
 
 /**

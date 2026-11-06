@@ -111,7 +111,12 @@ export function reportPage(r: Report) {
   );
 }
 
-export function setupPage(keys: { ingest: string; read: string } | null, message?: string) {
+export function setupPage(state: {
+  keys?: { ingest: string; read: string };
+  claimed?: boolean;
+  wrongCode?: boolean;
+}) {
+  const { keys } = state;
   if (keys) {
     return layout(
       "Set up",
@@ -124,10 +129,20 @@ export function setupPage(keys: { ingest: string; read: string } | null, message
         <p><a href="/">Open the dashboard</a> with any username and the read key as the password.</p>`,
     );
   }
+  if (state.claimed) {
+    return layout("Set up", html`<h1>Set up Brutal</h1><p>This instance is already set up.</p>`);
+  }
   return layout(
     "Set up",
     html`<h1>Set up Brutal</h1>
-      ${message ? html`<p>${message}</p>` : html`<p>Make this instance's first ingest and read keys.</p>`}
-      <form method="post"><button>Make keys</button></form>`,
+      ${state.wrongCode ? html`<p>That code is not right.</p>` : ""}
+      <p>
+        Enter the setup code: the <code>SETUP_CODE</code> secret if you set one, otherwise the
+        code in this Worker's logs (it was written there when this page opened).
+      </p>
+      <form method="post">
+        <input name="code" autocomplete="off" required />
+        <button>Make keys</button>
+      </form>`,
   );
 }

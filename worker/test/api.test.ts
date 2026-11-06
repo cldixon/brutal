@@ -4,12 +4,17 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { createApp } from "../src/app";
 import { bunD1 } from "./d1";
 
+const claimWith = (code: string): RequestInit => ({
+  method: "POST",
+  body: new URLSearchParams({ code }),
+});
+
 async function setup() {
   const app = createApp();
-  const env = { DB: bunD1() };
+  const env = { DB: bunD1(), SETUP_CODE: "s3cret" };
   const call = (path: string, init: RequestInit = {}) =>
     app.request(`http://localhost${path}`, init, env);
-  const res = await call("/setup", { method: "POST" });
+  const res = await call("/setup", claimWith("s3cret"));
   const page = await res.text();
   const [ingest] = page.match(/brutal_ingest_[\w-]+/) ?? [];
   const [read] = page.match(/brutal_read_[\w-]+/) ?? [];
@@ -37,7 +42,31 @@ const report = {
 describe("HTTP API", () => {
   test("setup runs once", async () => {
     const { call } = await setup();
-    expect((await call("/setup", { method: "POST" })).status).toBe(409);
+    expect((await call("/setup", claimWith("s3cret"))).status).toBe(409);
+  });
+
+  test("setup needs the code; without a secret one is generated and logged", async () => {
+    const app = createApp();
+    const env = { DB: bunD1() };
+    const call = (path: string, init: RequestInit = {}) =>
+      app.request(`http://localhost${path}`, init, env);
+    const logged: string[] = [];
+    const log = console.log;
+    console.log = (line: string) => logged.push(line);
+    try {
+      expect((await call("/setup")).status).toBe(200);
+    } finally {
+      console.log = log;
+    }
+    const code = logged.join("\n").match(/Setup code: (\w+)/)?.[1];
+    expect(code).toBeDefined();
+    expect((await call("/setup", claimWith("wrong"))).status).toBe(403);
+    const claimed = await call("/setup", claimWith(code ?? ""));
+    expect(claimed.status).toBe(200);
+    expect(await claimed.text()).toContain("brutal_read_");
+    // The code is used up, and the page says so.
+    expect((await call("/setup", claimWith(code ?? ""))).status).toBe(409);
+    expect(await (await call("/setup")).text()).toContain("already set up");
   });
 
   test("an ingested report shows up in the list and in full", async () => {
