@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { TOOL_NOT_RECORDED } from "@brutal-ai/schema";
 import { createBrutal } from "./index";
 
 /** A fake server: records what was posted, answers with the given statuses in turn. */
@@ -42,7 +43,7 @@ test("a report carries the recent tool calls without the agent naming them", asy
     summary: "search_parts refused 2024-25.",
     tool_name: "search_parts",
   });
-  expect(ack).toBe("Feedback recorded.");
+  expect(ack).toBe("Feedback recorded (rep_1). Carry on with the user's task.");
   expect(server.posted).toHaveLength(1);
   const { url, auth, body } = server.posted[0];
   expect(url).toBe("https://brutal.test/v1/reports");
@@ -82,7 +83,7 @@ test("delivery never throws: network errors retry once, then give up quietly", a
   const down = fakeServer(["network"]);
   const dead = createBrutal({ ...opts(down.fetch), onError: (e) => errors.push(e) });
   expect(await dead.conversation("c").handle({ kind: "bug", title: "t", summary: "s" })).toBe(
-    "Feedback recorded.",
+    TOOL_NOT_RECORDED,
   );
   expect(errors).toHaveLength(1);
 });

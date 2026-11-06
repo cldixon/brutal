@@ -23,12 +23,34 @@ import {
  * Connecting an app (claude.ai's connectors, any MCP client that speaks OAuth) to one project,
  * after Tempra's (cldixon/tempra, worker/src/oauth/): the provider in worker.ts serves discovery,
  * /register and /token and guards /mcp; this is the consent at /authorize, for the signed-in
- * person. A connection reaches one project of theirs, at one level: "report" does what an ingest
- * key does, "triage" what a read key does.
+ * person. A connection reaches one project of theirs; what it may do is the host's: on the app's
+ * host it files reports (as an ingest key), on the review host it reads and triages them (as a
+ * read key).
  */
 
 /** OAuth scopes. A grant never carries more than the person approved. */
 export const SCOPES = ["brutal:report", "brutal:triage"];
+
+/**
+ * Which MCP server a host serves: "report" (FEEDBACK_ORIGIN: `report_feedback`, for agents using
+ * someone's tools) or "review" (REVIEW_ORIGIN: the triage tools, for the developers' coding
+ * agents); null for the app's own host, which serves neither.
+ */
+export type Role = "report" | "review";
+
+export function roleOf(
+  origin: string,
+  env: { FEEDBACK_ORIGIN?: string; REVIEW_ORIGIN?: string },
+): Role | null {
+  if (env.REVIEW_ORIGIN && origin === env.REVIEW_ORIGIN) return "review";
+  if (env.FEEDBACK_ORIGIN && origin === env.FEEDBACK_ORIGIN) return "report";
+  return null;
+}
+
+/** The scopes a host's connections get. */
+export function scopesFor(role: Role): string[] {
+  return role === "review" ? ["brutal:triage"] : ["brutal:report"];
+}
 
 /** What an approved connection carries, checked again on every MCP call. */
 export interface Grant {
@@ -52,7 +74,14 @@ export interface GrantMetadata {
   client: string;
 }
 
-type Env = { Bindings: { DB: D1Database; OAUTH_PROVIDER?: OAuthHelpers } };
+type Env = {
+  Bindings: {
+    DB: D1Database;
+    OAUTH_PROVIDER?: OAuthHelpers;
+    FEEDBACK_ORIGIN?: string;
+    REVIEW_ORIGIN?: string;
+  };
+};
 
 /** The consent page's look: the app's minimal stylesheet (app/public/consent.css). */
 const HEADERS: Record<string, string> = {
@@ -95,7 +124,6 @@ interface Form {
   /** A project's id, or "new". */
   project: string;
   newProject: string;
-  access: "report" | "triage";
 }
 
 function consentPage(opts: {
@@ -104,11 +132,22 @@ function consentPage(opts: {
   email: string;
   projects: Project[];
   form: Form;
+  role: Role;
   error?: string;
 }) {
-  const { details, handle, email, projects, form, error } = opts;
+  const { details, handle, email, projects, form, role, error } = opts;
   const name = details.clientName || "This app";
-  return html`<h1>Connect ${name} to Brutal</h1>
+  const review = role === "review";
+  return html`<h1>Connect ${name} to Brutal${review ? " review" : ""}</h1>
+    <p>
+      ${
+        review
+          ? html`It will <strong>read the project's reports and triage them</strong>: set their
+              status and link issues.`
+          : html`It will <strong>file feedback reports</strong> about the tools it uses. It can't
+              read the project's reports.`
+      }
+    </p>
     <p class="muted">
       Signed in as ${email}. It will be sent back to <strong>${details.redirectHost}</strong>.
     </p>
@@ -126,18 +165,6 @@ function consentPage(opts: {
           A new project:
           <input name="new_project" value="${form.newProject}" maxlength="80" placeholder="Project name"
         /></label>
-      </fieldset>
-      <fieldset>
-        <legend>What it may do</legend>
-        <label
-          ><input type="radio" name="access" value="report" ${form.access === "report" ? "checked" : ""} />
-          <strong>Report feedback</strong>: file reports about its tools (like an ingest key)</label
-        >
-        <label
-          ><input type="radio" name="access" value="triage" ${form.access === "triage" ? "checked" : ""} />
-          <strong>Read and triage</strong>: also read the project's reports and update them (like a read
-          key)</label
-        >
       </fieldset>
       <p class="row">
         <button class="primary" name="decision" value="approve">Connect</button>
@@ -184,12 +211,8 @@ export function registerConsentRoutes<E extends Env>(app: Hono<E>) {
           handle: consent.handle,
           email: user.email,
           projects,
-          form: {
-            project: projects[0]?.id ?? "new",
-            newProject: "",
-            // Least access unless the app asked for more.
-            access: request.scope.includes("brutal:triage") ? "triage" : "report",
-          },
+          form: { project: projects[0]?.id ?? "new", newProject: "" },
+          role: roleOf(new URL(c.req.url).origin, c.env) ?? "report",
         }),
         consent.headers,
       );
@@ -214,8 +237,8 @@ export function registerConsentRoutes<E extends Env>(app: Hono<E>) {
       const form: Form = {
         project: String(body.get("project") ?? ""),
         newProject: String(body.get("new_project") ?? "").trim(),
-        access: body.get("access") === "triage" ? "triage" : "report",
       };
+      const role = roleOf(new URL(c.req.url).origin, c.env) ?? "report";
       const projects = await listProjects(db, user.id);
       const problem =
         form.project === "new"
@@ -231,13 +254,12 @@ export function registerConsentRoutes<E extends Env>(app: Hono<E>) {
       if (problem) {
         // The handle is still unused, so the same page can be shown again with the problem.
         return page(
-          consentPage({ details, handle, email: user.email, projects, form, error: problem }),
+          consentPage({ details, handle, email: user.email, projects, form, role, error: problem }),
           undefined,
           400,
         );
       }
-      const scope =
-        form.access === "triage" ? ["brutal:report", "brutal:triage"] : ["brutal:report"];
+      const scope = scopesFor(role);
       const approved = await oauth.approveConsent(c.req.raw, handle, { scope });
       const project =
         form.project === "new"
@@ -247,11 +269,11 @@ export function registerConsentRoutes<E extends Env>(app: Hono<E>) {
         id: crypto.randomUUID(),
         userId: user.id,
         projectId: project.id,
-        kind: form.access === "triage" ? "read" : "ingest",
+        kind: role === "review" ? "read" : "ingest",
       };
       const metadata: GrantMetadata = {
         project: project.id,
-        access: form.access,
+        access: role === "review" ? "triage" : "report",
         client: details.clientName || details.redirectHost || "An app",
       };
       const props: GrantProps = { grant };

@@ -16,11 +16,20 @@ let connections = $state<{ id: string; client: string; access: string; created_a
 
 const filters = $derived(new URLSearchParams(route.query));
 const origin = location.origin;
+let feedbackOrigin = $state<string | null>(null);
+let reviewOrigin = $state<string | null>(null);
 
 async function loadProject() {
-  const r = await api<{ project: Project; keys: KeyInfo[] }>(`/projects/${projectId}`);
+  const r = await api<{
+    project: Project;
+    keys: KeyInfo[];
+    feedback_origin: string | null;
+    review_origin: string | null;
+  }>(`/projects/${projectId}`);
   project = r.project;
   keys = r.keys;
+  feedbackOrigin = r.feedback_origin;
+  reviewOrigin = r.review_origin;
   connections = (
     await api<{ connections: typeof connections }>(`/projects/${projectId}/connections`)
   ).connections;
@@ -167,7 +176,7 @@ const olderHref = $derived.by(() => {
         {#each connections as c (c.id)}
           <tr>
             <td>{c.client}</td>
-            <td>{c.access === "triage" ? "read and triage" : "report feedback"}</td>
+            <td>{c.access === "triage" ? "review: read and triage" : "feedback: report"}</td>
             <td class="muted">{when(c.created_at)}</td>
             <td><button class="link" onclick={() => disconnect(c)}>Disconnect</button></td>
           </tr>
@@ -177,10 +186,18 @@ const olderHref = $derived.by(() => {
   {/if}
 
   <h2>Connect an agent</h2>
-  <p>Claude (claude.ai, Desktop, mobile): Settings → Connectors → Add custom connector, with this URL. You'll sign in, then pick this project and what it may do.</p>
-  <code class="block">{origin}/mcp</code>
-  <p>Claude Code (or any MCP client) with a key: an ingest key gives the agent <code>report_feedback</code>; a read key gives a coding agent the triage tools.</p>
-  <code class="block">claude mcp add --transport http brutal {origin}/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
+  <p>Two MCP servers. <strong>Feedback</strong>, for the agents using your tools: one tool, <code>report_feedback</code>; they never see the reports.</p>
+  <code class="block">{feedbackOrigin ?? origin}/mcp</code>
+  {#if reviewOrigin}
+    <p><strong>Review</strong>, for your coding agent: list, read and triage this project's reports.</p>
+    <code class="block">{reviewOrigin}/mcp</code>
+  {/if}
+  <p>Claude (claude.ai, Desktop, mobile): Settings → Connectors → Add custom connector, with either URL. You'll sign in, then pick this project. Add both to try your tools and read the feedback in one place.</p>
+  <p>Claude Code (or any MCP client) with a key: an ingest or read key on feedback, a read key on review.</p>
+  <code class="block">claude mcp add --transport http brutal {feedbackOrigin ?? origin}/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
+  {#if reviewOrigin}
+    <code class="block">claude mcp add --transport http brutal-review {reviewOrigin}/mcp --header "Authorization: Bearer &lt;read key&gt;"</code>
+  {/if}
   <p>Any language, over HTTP:</p>
   <code class="block">curl -X POST {origin}/v1/reports -H "Authorization: Bearer &lt;ingest key&gt;" -H "content-type: application/json" -d '{`{"kind":"friction","title":"…","summary":"…","tool_name":"…"}`}'</code>
   <p>TypeScript: <code>@brutal-ai/sdk</code> with <code>endpoint: "{origin}"</code> records your agent's recent tool calls and attaches them to every report.</p>

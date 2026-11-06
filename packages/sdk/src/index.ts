@@ -2,10 +2,11 @@ import {
   AgentInput,
   type Context,
   type ReportInput,
-  TOOL_ACK,
   TOOL_DESCRIPTION,
   TOOL_NAME,
+  TOOL_NOT_RECORDED,
   type ToolCall,
+  toolAck,
   toolDefinition,
 } from "@brutal-ai/schema";
 
@@ -42,7 +43,7 @@ export interface BrutalOptions {
 
 /** How many conversations' buffers are kept; the least recently used goes first. */
 const MAX_CONVERSATIONS = 1000;
-const SDK_VERSION = "0.1.0";
+const SDK_VERSION = "0.3.0";
 
 export function createBrutal(options: BrutalOptions) {
   const maxCalls = options.maxRecentCalls ?? 20;
@@ -90,9 +91,14 @@ export function createBrutal(options: BrutalOptions) {
    * error or a 5xx, within the timeout.
    */
   async function report(input: ReportInput): Promise<boolean> {
+    return (await send(input)) !== null;
+  }
+
+  /** Sends one report: the stored report's id, "" if stored with none given, null if not stored. */
+  async function send(input: ReportInput): Promise<string | null> {
     try {
       const shaped = options.redact ? options.redact(input) : input;
-      if (!shaped) return false;
+      if (!shaped) return null;
       const body = JSON.stringify(shaped);
       const deadline = AbortSignal.timeout(timeoutMs);
       for (let attempt = 0; ; attempt++) {
@@ -111,14 +117,17 @@ export function createBrutal(options: BrutalOptions) {
           if (attempt >= 1 || deadline.aborted) throw error;
           continue;
         }
-        if (res.ok) return true;
+        if (res.ok) {
+          const stored = (await res.json().catch(() => null)) as { id?: unknown } | null;
+          return typeof stored?.id === "string" ? stored.id : "";
+        }
         if (res.status < 500 || attempt >= 1) {
           throw new Error(`brutal: ${res.status} ${await res.text()}`);
         }
       }
     } catch (error) {
       options.onError?.(error);
-      return false;
+      return null;
     }
   }
 
@@ -174,7 +183,7 @@ export function createBrutal(options: BrutalOptions) {
               summary: "The agent's report did not match the tool's schema.",
               details: safeJson(input).slice(0, 10_000),
             };
-        await report({
+        const id = await send({
           ...agent,
           context: {
             ...options.context?.(),
@@ -185,7 +194,7 @@ export function createBrutal(options: BrutalOptions) {
             sdk_version: SDK_VERSION,
           },
         });
-        return TOOL_ACK;
+        return id === null ? TOOL_NOT_RECORDED : toolAck(id || "no id");
       },
     };
   }
