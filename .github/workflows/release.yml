@@ -1,52 +1,94 @@
 name: Release
 
-# Push a tag matching worker/package.json's version (e.g. v0.1.0) to release @brutal-ai/server,
-# @brutal-ai/schema, @brutal-ai/sdk and create-brutal-ai together. Owners' deploy folders depend
-# on these; nothing here deploys anything.
+# Releases on every push to main whose version (worker/package.json) is not on npm yet:
+# @brutal-ai/schema, @brutal-ai/sdk, @brutal-ai/server and create-brutal-ai are published
+# together at that version, then tagged v<version> with a GitHub release. To release, bump the
+# version in a PR and merge it. Each package on npmjs.com trusts this workflow (trusted
+# publishing: no token, with provenance). Nothing here deploys anything.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
-  contents: write # the GitHub release
+  contents: write # the tag and GitHub release
   id-token: write # npm trusted publishing
 
 env:
   CF_SEND_TELEMETRY: "false"
+  BRUTAL_CONFIG: brutal.config.example.json
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Is this version released?
+        id: version
+        run: |
+          version="$(jq -r .version worker/package.json)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # create-brutal-ai is published last, so a run that failed partway is not skipped.
+          if [ -n "$(npm view "create-brutal-ai@$version" version 2>/dev/null)" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$version is already on npm; nothing to release."
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: oven-sh/setup-bun@v2
-      # npm only to publish: trusted publishing (no token, with provenance) needs npm 11.5.1+.
+        if: steps.version.outputs.released == 'false'
+      # npm only to publish: trusted publishing needs npm 11.5.1 or later.
       - uses: actions/setup-node@v5
+        if: steps.version.outputs.released == 'false'
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest
-      - run: bun install --frozen-lockfile
+      - if: steps.version.outputs.released == 'false'
+        run: npm install -g npm@latest
+      - if: steps.version.outputs.released == 'false'
+        run: bun install --frozen-lockfile
+      - if: steps.version.outputs.released == 'false'
+        run: bun run check
+      - if: steps.version.outputs.released == 'false'
+        run: bun run pack
 
-      - name: Check the tag matches the version
-        run: |
-          version="v$(jq -r .version worker/package.json)"
-          if [ "$version" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME doesn't match worker/package.json ($version)"
-            exit 1
-          fi
-
-      - run: bun test
-      - run: bun run pack
-
-      # Schema before the SDK that depends on it; each package on npmjs.com trusts this workflow.
+      # Schema before the SDK that depends on it. A package already at this version (a re-run
+      # after a partial failure) is skipped, so the step can be repeated.
       - name: Publish to npm
+        if: steps.version.outputs.released == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          for pkg in brutal-ai-schema brutal-ai-sdk brutal-ai-server create-brutal-ai; do
-            npm publish dist/$pkg-*.tgz --access public
+          for pair in @brutal-ai/schema:brutal-ai-schema @brutal-ai/sdk:brutal-ai-sdk \
+                      @brutal-ai/server:brutal-ai-server create-brutal-ai:create-brutal-ai; do
+            name="${pair%%:*}"; file="${pair##*:}"
+            if [ -n "$(npm view "$name@$VERSION" version 2>/dev/null)" ]; then
+              echo "$name@$VERSION is already published"
+            else
+              npm publish "dist/$file-$VERSION.tgz" --access public
+            fi
           done
 
-      - name: GitHub release
+      - name: Tag and GitHub release
+        if: steps.version.outputs.released == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.tgz --generate-notes
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh release create "v$VERSION" dist/*.tgz --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+
+      # A version published by hand (the first, scripts/first-release.ts) still gets its tag and
+      # GitHub release, without tarballs, the first time this runs.
+      - name: Tag a version published elsewhere
+        if: steps.version.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then exit 0; fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
