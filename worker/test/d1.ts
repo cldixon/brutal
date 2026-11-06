@@ -18,13 +18,17 @@ export function bunD1(): D1Database {
       async run() {
         return { results: [], success: true, meta: { changes: q().run(...args).changes } };
       },
-      sync: () => q().run(...args),
+      // As D1's batch does: rows for a query, the change count for a write.
+      sync: () =>
+        /^\s*(SELECT|WITH)\b/i.test(sql)
+          ? { results: q().all(...args), success: true, meta: { changes: 0 } }
+          : { results: [], success: true, meta: { changes: q().run(...args).changes } },
     };
   };
   const d1 = {
     prepare: (sql: string) => statement(sql),
     async batch(stmts: ReturnType<typeof statement>[]) {
-      return db.transaction(() => stmts.map((s) => ({ success: true, meta: s.sync() })))();
+      return db.transaction(() => stmts.map((s) => s.sync()))();
     },
   };
   return d1 as unknown as D1Database;

@@ -14,7 +14,7 @@ export function bunSql(db = new Database(":memory:")): Sql {
 }
 
 /** The app in process: D1 over bun:sqlite, one in-memory store per project, mail captured. */
-export function harness(env: Record<string, string> = {}) {
+export function harness(env: Record<string, unknown> = {}) {
   const stores = new Map<string, ReportStore>();
   const mail: { to: string; subject: string; text: string }[] = [];
   const app = createApp({

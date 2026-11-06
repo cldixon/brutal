@@ -6,6 +6,9 @@
     "packages/*",
     "worker",
     "app",
+    "site",
+    "site/web",
+    "admin",
     "examples"
   ],
   "scripts": {
@@ -17,7 +20,7 @@
     "test": "bun test",
     "check": "bun run lint && bun run typecheck && bun run test",
     "pack": "bun scripts/pack.ts",
-    "build": "bun run --cwd app build",
+    "build": "bun run --cwd app build && bun run --cwd site build",
     "admin": "bun scripts/admin.ts"
   },
   "devDependencies": {

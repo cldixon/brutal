@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "types": ["@types/bun"] },
+  "include": [
+    "src",
+    "scripts",
+    "test",
+    "cloudflare.config.ts",
+    "wrangler.config.ts",
+    ".cloudflare/types/index.d.ts"
+  ]
+}

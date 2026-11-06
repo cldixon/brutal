@@ -1,6 +1,5 @@
 <script lang="ts">
 import { api } from "./api";
-import Landing from "./pages/Landing.svelte";
 import ProjectPage from "./pages/Project.svelte";
 import Projects from "./pages/Projects.svelte";
 import ReportPage from "./pages/Report.svelte";
@@ -28,7 +27,7 @@ const project = $derived(match("/projects/:project", route.path));
 
 <main>
   <nav>
-    <a class="brand" href={me ? "/projects" : "/"}>Brutal</a>
+    <a class="brand" href="/">Brutal</a>
     {#if me}
       <span class="muted">{me.email} · <button class="link" onclick={signOut}>Sign out</button></span>
     {:else if checked && route.path !== "/sign-in"}
@@ -37,7 +36,8 @@ const project = $derived(match("/projects/:project", route.path));
   </nav>
 
   {#if route.path === "/"}
-    <Landing signedIn={me !== null} />
+    <!-- Signed in, / is the app (the Worker serves the landing page to anyone else). -->
+    <Projects />
   {:else if route.path === "/sign-in"}
     <SignIn onSignedIn={refreshMe} />
   {:else if route.path === "/projects"}

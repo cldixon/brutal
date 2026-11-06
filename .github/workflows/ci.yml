@@ -14,12 +14,15 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build
       - run: bun run check
+      - run: bun run --cwd site deploy:dry
       - run: bun run --cwd worker deploy:dry
+      - run: bun run --cwd admin deploy:dry
       - run: bun run pack
 
-  # The hosted app at brutal.cldixon.dev, after every green push to main. Without the repo secret
-  # CLOUDFLARE_API_TOKEN it skips with a notice. BRUTAL_MAIL_FROM (a repo variable) turns on
-  # sign-in mail once a sending domain is set up.
+  # After every green push to main, in the order they bind to each other: the landing page
+  # (brutal-site), the app (brutal), then the operator's portal (brutal-admin, behind Cloudflare
+  # Access). Without the repo secret CLOUDFLARE_API_TOKEN nothing deploys; without OPERATOR_EMAIL
+  # the portal is skipped. Hosts and the mail address are in deploy.config.ts.
   deploy:
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -29,7 +32,7 @@ jobs:
       cancel-in-progress: false
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      BRUTAL_MAIL_FROM: ${{ vars.BRUTAL_MAIL_FROM }}
+      OPERATOR_EMAIL: ${{ secrets.OPERATOR_EMAIL }}
     steps:
       - name: No token, no deploy
         if: env.CLOUDFLARE_API_TOKEN == ''
@@ -42,5 +45,15 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != ''
       - run: bun run build
         if: env.CLOUDFLARE_API_TOKEN != ''
-      - run: bun run deploy
+      - name: Landing page (brutal-site)
         if: env.CLOUDFLARE_API_TOKEN != ''
+        run: bun run --cwd site deploy
+      - name: App (brutal)
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: bun run --cwd worker deploy
+      - name: Operator's portal (brutal-admin)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.OPERATOR_EMAIL != ''
+        run: bun run --cwd admin deploy
+      - name: No OPERATOR_EMAIL, no portal
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.OPERATOR_EMAIL == ''
+        run: echo "::notice::The operator's portal was not deployed. Add the OPERATOR_EMAIL repo secret."

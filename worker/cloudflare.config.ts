@@ -1,48 +1,55 @@
 import { bindings, defineConfig, exports } from "cf/config";
+import { COMPATIBILITY_DATE, DEPLOYMENT } from "../deploy.config.ts";
 
 /**
- * The hosted Brutal Worker for the `cf` CLI (`cf dev`, `cf deploy`, `cf workers types`): the API
- * (/v1), MCP (/mcp), the web app's API (/api) and the Svelte app's static files, at
- * brutal.cldixon.dev. Accounts live in D1; each project's reports in its own Durable Object.
+ * The app's Worker for the `cf` CLI (`cf dev`, `cf deploy`, `cf workers types`): the API (/v1), MCP
+ * (/mcp), the web app's API (/api) and the Svelte app's static files, on DEPLOYMENT.app.host. The
+ * landing page (site/) answers `/` for people signed out, through SITE; the operator's portal
+ * (admin/) calls the Operator entrypoint. Accounts live in D1; each project's reports in its own
+ * Durable Object. With no mode (`cf dev`, types) no domain is attached and nothing is bound.
  */
-const MAIL_FROM = process.env.BRUTAL_MAIL_FROM ?? "";
-
 export default defineConfig(({ mode }) => {
   const local = mode === undefined || mode === "local";
+  const { app, site, mailFrom } = DEPLOYMENT;
   return {
     worker: {
-      name: "brutal",
-      compatibilityDate: "2026-10-01",
+      name: app.name,
+      compatibilityDate: COMPATIBILITY_DATE,
       // The MCP SDK's transport needs it.
       compatibilityFlags: ["nodejs_compat"],
       entrypoint: "./src/index.ts",
       observability: { enabled: true },
-      domains: local ? [] : ["brutal.cldixon.dev"],
+      domains: local ? [] : [app.host],
       workersDev: false,
       // Previews would share production's D1 and Durable Objects.
       previewUrls: false,
       // The Svelte app; anything that isn't a built file is the app's index.html, except the
-      // paths the Worker answers.
+      // paths the Worker answers: `/` (the landing page or the app) and the site's files.
       assets: {
         notFoundHandling: "single-page-application",
-        runWorkerFirst: ["/api/*", "/v1/*", "/mcp", "/healthz"],
+        runWorkerFirst: ["/", "/_astro/*", "/api/*", "/v1/*", "/mcp", "/healthz"],
       },
       exports: {
         Project: exports.durableObject({ storage: "sqlite" }),
+        Operator: exports.worker(),
       },
       env: {
-        // Accounts: people, sign-in codes, sessions, projects, keys. Migrates itself.
+        // Accounts: people, sign-in codes, sessions, projects, keys, invites. Migrates itself.
         DB: bindings.d1({ name: "brutal-accounts" }),
-        PROJECT: bindings.durableObject({ worker: "brutal", exportName: "Project" }),
+        PROJECT: bindings.durableObject({ worker: app.name, exportName: "Project" }),
         ASSETS: bindings.assets(),
+        APP_ORIGIN: bindings.text(local ? "http://localhost:8787" : `https://${app.host}`),
         // Invite-only in production, as Tempra: accounts, invited emails and OPERATOR_EMAIL (a
-        // secret) get codes; anyone else joins the waitlist. Open in local dev.
+        // secret, set by admin/scripts/deploy.ts) get codes; anyone else joins the waitlist.
         SIGNUP: bindings.text(local ? "open" : "invite"),
-        // Sign-in codes by mail, once a sending domain is set up (BRUTAL_MAIL_FROM at deploy).
-        ...(MAIL_FROM && {
-          EMAIL: bindings.sendEmail({ allowedSenderAddresses: [MAIL_FROM] }),
-          MAIL_FROM: bindings.text(MAIL_FROM),
-        }),
+        ...(local ? {} : { SITE: bindings.worker({ worker: site.name }) }),
+        // Sign-in and invitation mail, once a sending domain is set up.
+        ...(mailFrom
+          ? {
+              EMAIL: bindings.sendEmail({ allowedSenderAddresses: [mailFrom] }),
+              MAIL_FROM: bindings.text(mailFrom),
+            }
+          : {}),
       },
     },
   };

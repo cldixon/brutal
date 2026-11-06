@@ -39,10 +39,15 @@ const searchParts = convo.wrap("search_parts", rawSearchParts); // recorded from
 
 ## How it's built
 
-- `worker/`: one Cloudflare Worker (Hono). Accounts (people, sign-in codes, sessions, projects,
-  keys) are in D1; each project's reports are in its own Durable Object with SQLite.
-- `app/`: the web app, Svelte 5 and Vite, served as the Worker's static assets.
-- `packages/schema`, `packages/sdk`: the report schema and the TypeScript SDK, published to npm.
+Three Cloudflare Workers, as Tempra is built. Their names and hosts are in `deploy.config.ts`.
+
+| Folder                | Worker         | What it is                                                                                                                                                                            |
+| --------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worker/` + `app/`    | `brutal`       | The app on the main domain: the API (`/v1`), MCP (`/mcp`), the web app's API (`/api`) and the Svelte 5 web app. Accounts are in D1; each project's reports in its own Durable Object. |
+| `site/` (`site/web/`) | `brutal-site`  | The landing page, built with Astro. No host of its own: the app shows it at `/` to people who aren't signed in, through a service binding.                                            |
+| `admin/`              | `brutal-admin` | The operator's portal, on its own host behind Cloudflare Access: the waitlist, invites and accounts, through the app's `Operator` entrypoint.                                         |
+
+`packages/schema` and `packages/sdk` are the report schema and the TypeScript SDK, published to npm.
 
 ## Develop
 
@@ -54,6 +59,8 @@ bun run dev                                   # cf dev on http://localhost:8787
 bun run --cwd app dev                         # optional: Vite with hot reload, proxying the API
 ```
 
-`bun run check` runs lint (Biome), typecheck (tsc, svelte-check) and tests, as CI does. Every
-green push to `main` deploys to brutal.cldixon.dev. Releasing the npm packages is bumping
+`bun run check` runs lint (Biome), typecheck (tsc, svelte-check, astro check) and tests, as CI
+does. Every green push to `main` deploys the site, the app and the portal, in that order (repo
+secrets `CLOUDFLARE_API_TOKEN` and `OPERATOR_EMAIL`). Sign-up is invite-only: admit people from
+the portal, or with `bun run admin invite --email …`. Releasing the npm packages is bumping
 `worker/package.json`'s version in a PR (`.github/workflows/release.yml`).

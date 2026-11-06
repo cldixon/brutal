@@ -51,6 +51,10 @@ export interface Bindings {
   SIGNUP?: string;
   /** The operator (a secret): always let in, and told when someone joins the waitlist. */
   OPERATOR_EMAIL?: string;
+  /** The app's own origin, for links in mail sent from the operator's portal. */
+  APP_ORIGIN?: string;
+  /** The landing page's Worker (site/): `/` for people signed out, and its own files. */
+  SITE?: Fetcher;
 }
 
 export interface MailBinding {
@@ -71,19 +75,22 @@ export interface Deps {
   mailer(env: Bindings): Mailer | null;
 }
 
+/** Cloudflare Email Service's mailer, from "Brutal" at MAIL_FROM; null without a sending domain. */
+export function mailerFor(env: Bindings): Mailer | null {
+  const binding = env.EMAIL;
+  const from = env.MAIL_FROM;
+  if (!binding || !from) return null;
+  return async (to, subject, text) => {
+    await binding.send({ from: { name: "Brutal", email: from }, to, subject, text });
+  };
+}
+
 const defaultDeps: Deps = {
   reports(env, projectId) {
     if (!env.PROJECT) throw new Error("The PROJECT binding is missing.");
     return env.PROJECT.get(env.PROJECT.idFromName(projectId)) as unknown as ProjectReports;
   },
-  mailer(env) {
-    const binding = env.EMAIL;
-    const from = env.MAIL_FROM;
-    if (!binding || !from) return null;
-    return async (to, subject, text) => {
-      await binding.send({ from: { name: "Brutal", email: from }, to, subject, text });
-    };
-  },
+  mailer: mailerFor,
 };
 
 type Env = {
@@ -319,6 +326,36 @@ export function createApp(overrides: Partial<Deps> = {}) {
   });
 
   app.all("/api/*", () => problem("Not found.", 404));
+
+  // `/` is the landing page (site/, through SITE) for people signed out, and the app for people
+  // signed in; the site's own files come from it too. It gets no cookie or credentials, and `/`
+  // varies by cookie, so a browser never reuses the landing page once signed in (Tempra's way).
+  const fromSite = async (c: C) => {
+    const site = c.env.SITE;
+    if (!site) return c.redirect("/sign-in");
+    const headers = new Headers(c.req.raw.headers);
+    headers.delete("Cookie");
+    headers.delete("Authorization");
+    const res = await site.fetch(new Request(c.req.url, { method: c.req.method, headers }));
+    const out = new Response(res.body, res);
+    if (new URL(c.req.url).pathname === "/") {
+      out.headers.set("Cache-Control", "private, no-cache");
+      out.headers.append("Vary", "Cookie");
+    }
+    return out;
+  };
+
+  app.get("/", async (c) => {
+    const secret = getCookie(c, SESSION_COOKIE);
+    const user = secret ? await sessionUser(c.var.db, secret) : null;
+    if (!user) return fromSite(c);
+    const res = c.env.ASSETS ? await c.env.ASSETS.fetch(c.req.raw) : await c.notFound();
+    const out = new Response(res.body, res);
+    out.headers.set("Cache-Control", "private, no-cache");
+    out.headers.append("Vary", "Cookie");
+    return out;
+  });
+  app.get("/_astro/*", (c) => fromSite(c));
 
   // Everything else is the web app (static assets, which answer before the Worker in
   // production; this covers local tools that send every request here).

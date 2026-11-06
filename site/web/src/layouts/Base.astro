@@ -1,0 +1,32 @@
+---
+/** Every page: the name, the one way into the app (Sign in), the page, a quiet footer. */
+import "../styles/site.css";
+
+interface Props {
+  title: string;
+  description: string;
+  noindex?: boolean;
+}
+const { title, description, noindex = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a class="brand" href="/">Brutal</a>
+        <a href="/sign-in">Sign in</a>
+      </nav>
+      <slot />
+      <footer>Brutal · feedback for agents</footer>
+    </main>
+  </body>
+</html>
