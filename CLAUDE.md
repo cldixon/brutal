@@ -12,13 +12,12 @@ A hosted service, deployed from this repo, laid out as Tempra is: three Workers,
 hosts in **`deploy.config.ts`** (the only file to change for a new domain: the app on the domain,
 the portal on admin.<domain>, `mailFrom` on a sending subdomain once one is set up).
 
-- **`brutal`** (`worker/` + `app/`): the app on the main host (temporarily brutal.cldixon.dev).
+- **`brutal`** (`worker/` + `app/`): the app on the main host, thatsbrutal.fyi.
 - **`brutal-site`** (`site/`, its Astro project in `site/web/`, kept apart because cf switches to
   a framework build when it finds Astro in a folder): the landing page. No host of its own; the
   app answers `/` from it for people signed out (no cookie forwarded, `Vary: Cookie`) and
   `/_astro/*`, through the SITE service binding. Static, no script.
-- **`brutal-admin`** (`admin/`): the operator's portal on its own host (temporarily
-  brutal-admin.cldixon.dev: one level under the zone, so its certificate covers it), behind
+- **`brutal-admin`** (`admin/`): the operator's portal on its own host, admin.thatsbrutal.fyi, behind
   Cloudflare Access (one-time PIN, OPERATOR_EMAIL only, 2 hours; `admin/scripts/deploy.ts` makes
   sure of Access, deploys, then sets OPERATOR_EMAIL on the portal and the app). Server-rendered,
   no script; it re-checks Access's token and calls the app's `Operator` WorkerEntrypoint

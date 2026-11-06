@@ -57,9 +57,7 @@ switch (command) {
       e,
       new Date().toISOString(),
     ]);
-    console.log(
-      `${e} is invited. They aren't emailed: tell them to sign in at brutal.cldixon.dev.`,
-    );
+    console.log(`${e} is invited. They aren't emailed: tell them to sign in at thatsbrutal.fyi.`);
     break;
   }
   case "uninvite": {

@@ -5,7 +5,7 @@ to tell you about friction, bugs, gaps in its tools, and tasks worth keeping as 
 arrives with the agent's recent tool calls attached. You, or your coding agent, read and triage
 them.
 
-Hosted at **https://brutal.cldixon.dev**: sign in with your email (a code is mailed to you), make
+Hosted at **https://thatsbrutal.fyi**: sign in with your email (a code is mailed to you), make
 a project for each agent or tool you're testing, and give the agent a key.
 
 ## Connect an agent
@@ -19,14 +19,14 @@ a project for each agent or tool you're testing, and give the agent a key.
 | `@brutal-ai/sdk`                                 | TypeScript: the tool in Anthropic and Vercel AI SDK shapes, plus a recorder that attaches recent tool calls                       | ingest |
 
 ```sh
-claude mcp add --transport http brutal https://brutal.cldixon.dev/mcp --header "Authorization: Bearer <key>"
+claude mcp add --transport http brutal https://thatsbrutal.fyi/mcp --header "Authorization: Bearer <key>"
 ```
 
 ```ts
 import { createBrutal } from "@brutal-ai/sdk";
 
 const brutal = createBrutal({
-  endpoint: "https://brutal.cldixon.dev",
+  endpoint: "https://thatsbrutal.fyi",
   ingestKey: process.env.BRUTAL_INGEST_KEY,
 });
 const convo = brutal.conversation(conversationId);
