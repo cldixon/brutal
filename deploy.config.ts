@@ -12,8 +12,11 @@ export const DEPLOYMENT = {
   site: { name: "brutal-site" },
   /** The operator's portal, behind Cloudflare Access. */
   admin: { name: "brutal-admin", host: "admin.thatsbrutal.fyi" },
-  /** Sign-in and invitation mail's address; empty until a sending domain is set up. */
-  mailFrom: "",
+  /**
+   * Sign-in and invitation mail's address, on the zone's sending subdomain (Cloudflare Email
+   * Service, onboarded 2026-11-06); empty would turn mail off.
+   */
+  mailFrom: "noreply@mail.thatsbrutal.fyi",
 } as const;
 
 export const COMPATIBILITY_DATE = "2026-10-01";
