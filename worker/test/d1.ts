@@ -8,8 +8,9 @@ export function bunD1(): D1Database {
     const args = params as SQLQueryBindings[];
     return {
       bind: (...p: unknown[]) => statement(sql, p),
-      async first<T>() {
-        return (q().get(...args) as T | null) ?? null;
+      async first<T>(column?: string) {
+        const row = (q().get(...args) as Record<string, unknown> | null) ?? null;
+        return (row && column ? row[column] : row) as T | null;
       },
       async all<T>() {
         return { results: q().all(...args) as T[], success: true, meta: {} };

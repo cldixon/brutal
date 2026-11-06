@@ -3,11 +3,14 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { reportPage, reportsPage, setupPage } from "./dashboard";
 import { getReport, insertReport, listReports, migrated, updateReport } from "./db";
-import { findKey, type Key, secretFrom, setUp } from "./keys";
+import { findKey, type Key, secretFrom } from "./keys";
 import { handleMcp } from "./mcp";
+import { claim, isClaimed, logSetupCode } from "./setup";
 
 export interface Bindings {
   DB: D1Database;
+  /** Optional: the setup code, when the deployer sets one; otherwise one is made and logged. */
+  SETUP_CODE?: string;
 }
 type Env = { Bindings: Bindings; Variables: { db: D1Database; key: Key } };
 
@@ -67,12 +70,19 @@ export function createApp() {
 
   app.all("/mcp", auth("ingest", "read"), (c) => handleMcp(c.req.raw, c.var.db, c.var.key));
 
-  // First run: a fresh instance makes its first ingest and read keys and shows them once.
-  app.get("/setup", (c) => c.html(setupPage(null)));
+  // First run: the setup code claims the instance and shows its first two keys once.
+  app.get("/setup", async (c) => {
+    if (await isClaimed(c.var.db)) return c.html(setupPage({ claimed: true }));
+    await logSetupCode(c.var.db, c.env.SETUP_CODE);
+    return c.html(setupPage({}));
+  });
   app.post("/setup", async (c) => {
-    const keys = await setUp(c.var.db);
-    if (!keys) return c.html(setupPage(null, "This instance is already set up."), 409);
-    return c.html(setupPage(keys));
+    const form = await c.req.parseBody();
+    const code = typeof form.code === "string" ? form.code : "";
+    const result = await claim(c.var.db, c.env.SETUP_CODE, code);
+    if (result.ok) return c.html(setupPage({ keys: result }));
+    if (result.reason === "claimed") return c.html(setupPage({ claimed: true }), 409);
+    return c.html(setupPage({ wrongCode: true }), 403);
   });
 
   // The dashboard: the browser's own Basic auth prompt, with the read key as the password.

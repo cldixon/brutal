@@ -16,6 +16,16 @@ Read it before architectural decisions. Where this repo deliberately differs, it
 - **Migrations apply themselves** on first use per isolate (`worker/src/db.ts`), so a
   self-deployer never runs one. Never edit a shipped migration; only add.
 - **Dashboard auth** is the browser's Basic auth with the read key as password, until Access.
+- **Setup** (`worker/src/setup.ts`) takes a setup code, as igloo does: the `SETUP_CODE` secret,
+  or one generated on first use and written only to the Worker's logs. The claim is one D1 batch.
+- **The SDK depends on `@brutal/schema` (and so zod)**; the handoff's "zero runtime deps" waits
+  until it is bundled for publishing.
+
+## Deployment
+
+The reference deployment is the Worker `brutal` on `https://brutal.cl-dixon.workers.dev` (D1
+`brutal`), deployed with `bun run deploy`. It is claimed. Do not create or delete Cloudflare
+resources without asking.
 
 ## Tooling
 
@@ -26,5 +36,5 @@ Read it before architectural decisions. Where this repo deliberately differs, it
 
 ## Not built yet (handoff milestones)
 
-TS SDK with the tool-call recorder (M2), CLI (M4), clustering with Queues + Vectorize, issue
+OpenAI/Bedrock/Mastra/LangChain tool formats and a model-driven eval script (M2), CLI (M4), clustering with Queues + Vectorize, issue
 sync, webhooks and the Deploy to Cloudflare button (M5), rate limits per conversation, retention.

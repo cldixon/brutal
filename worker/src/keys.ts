@@ -12,7 +12,7 @@ export interface Key {
 
 const PREFIX: Record<KeyKind, string> = { ingest: "brutal_ingest_", read: "brutal_read_" };
 
-async function sha256(text: string): Promise<string> {
+export async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -25,17 +25,16 @@ function randomSecret(): string {
     .replaceAll("=", "");
 }
 
-export async function createKey(
+/** A new key: its secret (shown once) and the statement that stores its hash. */
+export async function newKey(
   db: D1Database,
   kind: KeyKind,
-): Promise<{ id: string; secret: string }> {
-  const id = newId("key");
+): Promise<{ secret: string; insert: D1PreparedStatement }> {
   const secret = PREFIX[kind] + randomSecret();
-  await db
+  const insert = db
     .prepare("INSERT INTO keys (id, kind, hash, created_at) VALUES (?, ?, ?, ?)")
-    .bind(id, kind, await sha256(secret), new Date().toISOString())
-    .run();
-  return { id, secret };
+    .bind(newId("key"), kind, await sha256(secret), new Date().toISOString());
+  return { secret, insert };
 }
 
 export async function findKey(db: D1Database, secret: string): Promise<Key | null> {
@@ -44,21 +43,6 @@ export async function findKey(db: D1Database, secret: string): Promise<Key | nul
     .prepare("SELECT id, kind FROM keys WHERE hash = ?")
     .bind(await sha256(secret))
     .first<Key>();
-}
-
-export async function hasKeys(db: D1Database): Promise<boolean> {
-  return (await db.prepare("SELECT 1 FROM keys LIMIT 1").first()) !== null;
-}
-
-/**
- * First run: makes one ingest key and one read key, only while there are none. The keys are
- * shown once. Returns null when the instance is already set up.
- */
-export async function setUp(db: D1Database): Promise<{ ingest: string; read: string } | null> {
-  if (await hasKeys(db)) return null;
-  const ingest = await createKey(db, "ingest");
-  const read = await createKey(db, "read");
-  return { ingest: ingest.secret, read: read.secret };
 }
 
 /** The secret from `Authorization: Bearer …`, or Basic auth's password (the dashboard). */
