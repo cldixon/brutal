@@ -14,13 +14,27 @@ export type BrutalConfig = {
   database?: string;
   /** Custom domain on a zone in your Cloudflare account. Without one, workers.dev serves it. */
   domain?: string | null;
+  /**
+   * Cloudflare Access in front of /dashboard (needs `domain`). `emails` are who may sign in;
+   * `brutal-server access` sets up the application and writes `team` and `aud`. Without it, the
+   * dashboard asks for the read key.
+   */
+  access?: BrutalAccess | null;
+};
+
+export type BrutalAccess = {
+  emails: string[];
+  /** The Zero Trust team domain, e.g. example.cloudflareaccess.com (written by the CLI). */
+  team?: string;
+  /** The Access application's audience tag (written by the CLI). */
+  aud?: string;
 };
 
 export const CONFIG_FILE = "brutal.config.json";
 export const DEFAULTS = { worker: "brutal" } as const;
 
-/** Environment variables that override the file, for CI. */
-const ENV: Record<keyof BrutalConfig, string> = {
+/** Environment variables that override the file's plain settings, for CI. */
+const ENV: Record<"worker" | "database" | "domain", string> = {
   worker: "BRUTAL_WORKER",
   database: "BRUTAL_DATABASE",
   domain: "BRUTAL_DOMAIN",
@@ -52,7 +66,7 @@ export function readConfigFile(dir: string): Partial<BrutalConfig> | null {
 export function loadBrutalConfig(dir: string, { allowDefaults = false } = {}): BrutalConfig {
   const file = readConfigFile(dir);
   const env: Partial<BrutalConfig> = {};
-  for (const [key, name] of Object.entries(ENV) as [keyof BrutalConfig, string][]) {
+  for (const [key, name] of Object.entries(ENV) as [keyof typeof ENV, string][]) {
     const value = process.env[name];
     if (value !== undefined) (env as Record<string, string | null>)[key] = value || null;
   }
@@ -79,6 +93,7 @@ export function defineBrutal({ dir, entrypoint }: { dir: string; entrypoint?: st
       allowDefaults: argv.includes("dev") || argv.includes("types"),
     });
     const domain = brutal.domain || null;
+    const access = domain && brutal.access?.team && brutal.access.aud ? brutal.access : null;
     return {
       worker: {
         name: brutal.worker,
@@ -96,6 +111,12 @@ export function defineBrutal({ dir, entrypoint }: { dir: string; entrypoint?: st
         env: {
           // Reports, keys and settings. Migrates itself on first use; cf deploy creates it.
           DB: bindings.d1({ name: brutal.database ?? brutal.worker }),
+          // Cloudflare Access for /dashboard, once `brutal-server access` has set it up.
+          ...(access && {
+            ACCESS_TEAM: bindings.text(access.team ?? ""),
+            ACCESS_AUD: bindings.text(access.aud ?? ""),
+            ACCESS_EMAILS: bindings.text(access.emails.join(",")),
+          }),
         },
       },
     };

@@ -1,5 +1,6 @@
 import { IMPACTS, KINDS, type Report, STATUSES } from "@brutal-ai/schema";
 import { html, raw } from "hono/html";
+import type { SignedIn } from "./app";
 
 /** The bare dashboard: server-rendered, no script. Everything from a report is escaped. */
 
@@ -10,10 +11,21 @@ th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #ddd;
 pre { background: #f5f5f5; padding: .75rem; overflow-x: auto; white-space: pre-wrap; }
 form.filters { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .muted { color: #666; }
+p.nav { display: flex; justify-content: space-between; gap: 1rem; }
 code.key { display: block; padding: .5rem; background: #f5f5f5; margin: .25rem 0 1rem; }
 `;
 
-function layout(title: string, body: unknown) {
+/** The top line: home, and who is signed in with a way out (Access's own sign-out). */
+function nav(who?: SignedIn) {
+  if (!who) return html`<p><a href="/dashboard">Brutal</a></p>`;
+  const account =
+    who.via === "access"
+      ? html`${who.email} · <a href="/cdn-cgi/access/logout">Sign out</a>`
+      : html`Signed in with the read key (close the browser to sign out)`;
+  return html`<p class="nav"><a href="/dashboard">Brutal</a> <span class="muted">${account}</span></p>`;
+}
+
+function layout(title: string, body: unknown, who?: SignedIn) {
   return html`<!doctype html>
     <html lang="en">
       <head>
@@ -25,8 +37,7 @@ function layout(title: string, body: unknown) {
         </style>
       </head>
       <body>
-        <p><a href="/">Brutal</a></p>
-        ${body}
+        ${nav(who)} ${body}
       </body>
     </html>`;
 }
@@ -38,7 +49,12 @@ function select(name: string, options: readonly string[], current?: string) {
   </select>`;
 }
 
-export function reportsPage(reports: Report[], q: Record<string, string>, next: string | null) {
+export function reportsPage(
+  reports: Report[],
+  q: Record<string, string>,
+  next: string | null,
+  who?: SignedIn,
+) {
   const nextQuery = next ? new URLSearchParams({ ...q, before: next }).toString() : null;
   return layout(
     "Reports",
@@ -61,7 +77,7 @@ export function reportsPage(reports: Report[], q: Record<string, string>, next: 
                 (r) => html`<tr>
                   <td class="muted">${r.created_at.slice(0, 16).replace("T", " ")}</td>
                   <td>${r.kind}</td>
-                  <td><a href="/reports/${r.id}">${r.title}</a></td>
+                  <td><a href="/dashboard/reports/${r.id}">${r.title}</a></td>
                   <td>${r.tool_name ?? ""}</td>
                   <td>${r.impact ?? ""}</td>
                   <td>${r.status}</td>
@@ -70,11 +86,12 @@ export function reportsPage(reports: Report[], q: Record<string, string>, next: 
             </tbody>
           </table>`
       }
-      ${nextQuery ? html`<p><a href="/?${nextQuery}">Older</a></p>` : ""}`,
+      ${nextQuery ? html`<p><a href="/dashboard?${nextQuery}">Older</a></p>` : ""}`,
+    who,
   );
 }
 
-export function reportPage(r: Report) {
+export function reportPage(r: Report, who?: SignedIn) {
   const { recent_tool_calls: calls = [], ...context } = r.context;
   return layout(
     r.title,
@@ -108,6 +125,7 @@ export function reportPage(r: Report) {
       }
       <h2>Context</h2>
       <pre>${JSON.stringify(context, null, 2)}</pre>`,
+    who,
   );
 }
 
@@ -126,7 +144,7 @@ export function setupPage(state: {
         <code class="key">${keys.ingest}</code>
         <p>Read key, for the dashboard, the CLI and coding agents (it reads and triages):</p>
         <code class="key">${keys.read}</code>
-        <p><a href="/">Open the dashboard</a> with any username and the read key as the password.</p>`,
+        <p><a href="/dashboard">Open the dashboard</a> with any username and the read key as the password, or set up Cloudflare Access with <code>brutal-server access</code>.</p>`,
     );
   }
   if (state.claimed) {

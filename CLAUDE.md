@@ -17,7 +17,11 @@ Read it before architectural decisions. Where this repo deliberately differs, it
   `worker/src/mcp.ts`), not the Agents SDK's `McpAgent`: no Durable Object is needed yet.
 - **Migrations apply themselves** on first use per isolate (`worker/src/db.ts`), so a
   self-deployer never runs one. Never edit a shipped migration; only add.
-- **Dashboard auth** is the browser's Basic auth with the read key as password, until Access.
+- **Dashboard sign-in** (`/dashboard`) is Cloudflare Access when an owner sets it up
+  (`brutal-server access`, `worker/cli/access.ts`: one-time PIN, an allow policy for their emails,
+  an app over `<domain>/dashboard` only, through `cf`), with the Worker re-checking Access's token
+  (`worker/src/access.ts`, adapted from Tempra's admin portal); otherwise Basic auth with the read
+  key. Access never covers `/v1`, `/mcp` or `/setup`, which take keys.
 - **Setup** (`worker/src/setup.ts`) takes a setup code, as igloo does: the `SETUP_CODE` secret,
   or one generated on first use and written only to the Worker's logs. The claim is one D1 batch.
 - **The SDK depends on `@brutal-ai/schema` (and so zod)**, not zero runtime deps as the handoff

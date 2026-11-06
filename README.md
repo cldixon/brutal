@@ -86,6 +86,13 @@ to sign in to Cloudflare, asks for the settings, and deploys. The first deploy p
 code: open `/setup` on your instance and enter it for your keys. Updating is
 `bun update @brutal-ai/server && bun run deploy`; the database migrates itself.
 
+**Sign-in with Cloudflare Access.** With a custom domain, `bun run access` puts Access in front of
+`/dashboard` only: a one-time PIN login, a policy allowing your emails (from `access.emails` in
+`brutal.config.json`, or asked for), and an application with 24-hour sessions, made or corrected
+through `cf` (needs a Zero Trust organization on the account; the Free plan is enough). It writes
+the team and application to `brutal.config.json`; `bun run deploy` then has the Worker check
+Access's token on every dashboard request. The API, MCP and `/setup` keep using keys.
+
 ## Releases
 
 Four packages are released together at `worker/package.json`'s version: `@brutal-ai/server`,

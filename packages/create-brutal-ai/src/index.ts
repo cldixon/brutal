@@ -49,6 +49,7 @@ const files: Record<string, string> = {
         deploy: "brutal-server deploy",
         dev: "brutal-server dev",
         secrets: "brutal-server secrets",
+        access: "brutal-server access",
       },
       dependencies: {
         "@brutal-ai/server": from ? resolveSpec(from) : `^${BRUTAL_VERSION}`,
@@ -108,6 +109,7 @@ Cloudflare account. Its settings are in \`brutal.config.json\`; the code comes f
 | \`bun run setup\` | Change the settings (re-run any time) |
 | \`bun run deploy\` | Deploy. The first deploy prints the setup code: open \`/setup\` and enter it for your keys |
 | \`bun run dev\` | Run it locally on http://localhost:8787 |
+| \`bun run access\` | Sign in to \`/dashboard\` with Cloudflare Access (a code mailed to you) instead of the read key; needs a custom domain. Then \`bun run deploy\` |
 
 **Update Brutal:** \`bun update @brutal-ai/server && bun run deploy\`. Migrations apply themselves.
 
