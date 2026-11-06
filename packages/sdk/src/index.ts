@@ -43,7 +43,7 @@ export interface BrutalOptions {
 
 /** How many conversations' buffers are kept; the least recently used goes first. */
 const MAX_CONVERSATIONS = 1000;
-const SDK_VERSION = "0.1.0";
+const SDK_VERSION = "0.3.0";
 
 export function createBrutal(options: BrutalOptions) {
   const maxCalls = options.maxRecentCalls ?? 20;
