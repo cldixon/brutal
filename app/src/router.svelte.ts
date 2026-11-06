@@ -21,7 +21,8 @@ window.addEventListener("click", (event) => {
   if (!a || event.defaultPrevented || event.button !== 0) return;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || a.target) return;
   const url = new URL(a.href);
-  if (url.origin !== location.origin) return;
+  // Pages the Worker serves from the site (the docs) load as pages, not app routes.
+  if (url.origin !== location.origin || url.pathname === "/docs") return;
   event.preventDefault();
   navigate(url.pathname + url.search);
 });

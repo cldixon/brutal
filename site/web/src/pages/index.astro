@@ -9,13 +9,12 @@ import Base from "../layouts/Base.astro";
   <h1>Feedback for agents</h1>
   <p>
     Your agents use your tools all day. Brutal gives them a way to tell you what's wrong: tools that
-    reject reasonable input, results that look off, things they can't ask for, slow calls, and
-    tasks worth keeping as evals.
+    reject reasonable input, results that look off, things they can't ask for and slow calls.
   </p>
   <p>
-    Add the <code>report_feedback</code> tool to an agent through MCP, the SDK or plain HTTP. Each
-    report arrives with the agent's recent tool calls attached. You, or your coding agent, read and
-    triage them.
+    Give an agent the <code>report_feedback</code> tool through MCP, the SDK or plain HTTP. You, or
+    your coding agent, read and triage what it reports through a second MCP server it never sees.
+    <a href="/docs">How it works</a>.
   </p>
   <a class="cta" href="/sign-in">Sign in</a>
   <p>Brutal is invite-only for now. Sign in with your email to join the waitlist.</p>

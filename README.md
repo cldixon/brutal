@@ -5,7 +5,8 @@ to tell you about friction, bugs and gaps in its tools. Each report arrives with
 recent tool calls attached. You, or your coding agent, read and triage them.
 
 Hosted at **https://thatsbrutal.fyi**: sign in with your email (a code is mailed to you), make
-a project for each agent or tool you're testing, and give the agent a key.
+a project for each agent or tool you're testing, and give the agent a key. The docs for users are
+at **https://thatsbrutal.fyi/docs** (`site/web/src/pages/docs.astro`).
 
 ## Connect an agent
 

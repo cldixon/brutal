@@ -28,11 +28,14 @@ const project = $derived(match("/projects/:project", route.path));
 <main>
   <nav>
     <a class="brand" href="/">Brutal</a>
-    {#if me}
-      <span class="muted">{me.email} · <button class="link" onclick={signOut}>Sign out</button></span>
-    {:else if checked && route.path !== "/sign-in"}
-      <a href="/sign-in">Sign in</a>
-    {/if}
+    <span>
+      <a href="/docs">Docs</a>
+      {#if me}
+        <span class="muted">· {me.email} · <button class="link" onclick={signOut}>Sign out</button></span>
+      {:else if checked && route.path !== "/sign-in"}
+        · <a href="/sign-in">Sign in</a>
+      {/if}
+    </span>
   </nav>
 
   {#if route.path === "/"}
