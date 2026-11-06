@@ -11,14 +11,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { getReport, insertReport, listReports, updateReport } from "./db";
-import type { Key } from "./keys";
+import type { Key } from "./accounts";
+import type { ProjectReports } from "./reports";
 
 /**
  * One MCP server, two scopes chosen by the key: an ingest key sees only `report_feedback` (the
  * agent side); a read key sees the triage tools (the developer side, for coding agents).
  */
-function buildServer(db: D1Database, key: Key): McpServer {
+function buildServer(reports: ProjectReports, key: Key): McpServer {
   const server = new McpServer({ name: "brutal", version: "0.1.0" });
   const json = (value: unknown): CallToolResult => ({
     content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
@@ -31,7 +31,7 @@ function buildServer(db: D1Database, key: Key): McpServer {
       async (input) => {
         // Never fail the agent's turn over feedback: answer the same either way.
         try {
-          await insertReport(db, { ...input, context: { sdk: "mcp" } }, key.id);
+          await reports.insert({ ...input, context: { sdk: "mcp" } }, key.id);
         } catch (error) {
           console.error("report_feedback failed", error);
         }
@@ -61,10 +61,10 @@ function buildServer(db: D1Database, key: Key): McpServer {
       },
     },
     async (filter) => {
-      const { reports, next } = await listReports(db, filter);
+      const page = await reports.list(filter);
       // The list leaves out details and context; get_report has them.
-      const rows = reports.map(({ details: _d, context: _c, ...r }) => r);
-      return json({ reports: rows, next });
+      const rows = page.reports.map(({ details: _d, context: _c, ...r }) => r);
+      return json({ reports: rows, next: page.next });
     },
   );
 
@@ -77,7 +77,7 @@ function buildServer(db: D1Database, key: Key): McpServer {
       inputSchema: { id: z.string() },
     },
     async ({ id }) => {
-      const report = await getReport(db, id);
+      const report = await reports.get(id);
       if (!report) return { isError: true, content: [{ type: "text", text: `No report ${id}.` }] };
       return json(report);
     },
@@ -99,7 +99,7 @@ function buildServer(db: D1Database, key: Key): McpServer {
       },
     },
     async ({ id, ...update }) => {
-      const report = await updateReport(db, id, update);
+      const report = await reports.update(id, update);
       if (!report) return { isError: true, content: [{ type: "text", text: `No report ${id}.` }] };
       return json(report);
     },
@@ -117,15 +117,19 @@ function buildServer(db: D1Database, key: Key): McpServer {
       },
     },
     async ({ before, limit }) =>
-      json(await listReports(db, { kind: "eval_candidate", before, limit })),
+      json(await reports.list({ kind: "eval_candidate", before, limit })),
   );
 
   return server;
 }
 
 /** Serves one MCP request statelessly: a fresh server and transport per HTTP request. */
-export async function handleMcp(req: Request, db: D1Database, key: Key): Promise<Response> {
-  const server = buildServer(db, key);
+export async function handleMcp(
+  req: Request,
+  reports: ProjectReports,
+  key: Key,
+): Promise<Response> {
+  const server = buildServer(reports, key);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

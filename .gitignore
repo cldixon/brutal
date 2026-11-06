@@ -5,3 +5,4 @@ dist/
 .dev.vars
 .brutal-keys
 worker/brutal.config.json
+.astro/

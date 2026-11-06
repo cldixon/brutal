@@ -1,0 +1,100 @@
+/* Minimal: black on white, system fonts, plain links. */
+:root {
+  color: #111;
+  background: #fff;
+  font:
+    15px / 1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+a {
+  color: inherit;
+}
+h1 {
+  font-size: 1.6rem;
+  margin: 1.5rem 0 0.5rem;
+}
+h2 {
+  font-size: 1.1rem;
+  margin: 2rem 0 0.5rem;
+}
+nav {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+nav .brand {
+  font-weight: 700;
+  text-decoration: none;
+}
+.muted {
+  color: #666;
+}
+.error {
+  color: #b00;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #ddd;
+  vertical-align: top;
+}
+pre,
+code.block {
+  display: block;
+  background: #f4f4f4;
+  padding: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+form.row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0.5rem 0 1rem;
+}
+input,
+select,
+button {
+  font: inherit;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #111;
+  border-radius: 0;
+  background: #fff;
+  color: #111;
+}
+button {
+  cursor: pointer;
+}
+button.primary {
+  background: #111;
+  color: #fff;
+}
+button.link {
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  background: none;
+}
+.secret {
+  border: 1px solid #111;
+  padding: 0.75rem;
+  margin: 0.5rem 0 1rem;
+}

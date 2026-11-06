@@ -1,12 +1,11 @@
 {
-  "name": "@brutal-ai/server",
+  "name": "@brutal-ai/worker",
   "private": true,
   "type": "module",
   "scripts": {
-    "setup": "bun cli/brutal-server.ts setup",
     "dev": "cf dev",
-    "deploy": "bun cli/brutal-server.ts deploy",
-    "deploy:dry": "cf deploy --dry-run",
+    "deploy": "cf deploy --mode production",
+    "deploy:dry": "cf deploy --dry-run --mode production",
     "types": "cf workers types",
     "typecheck": "cf workers types && tsc -p ."
   },
@@ -23,5 +22,5 @@
     "wrangler": "^4.149.0"
   },
   "version": "0.2.0",
-  "description": "Brutal: feedback for agents, deployed to your own Cloudflare account"
+  "description": "Brutal, hosted: the Worker at thatsbrutal.fyi"
 }
