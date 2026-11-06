@@ -7,7 +7,7 @@ import {
   TOOL_NAME,
   type ToolCall,
   toolDefinition,
-} from "@brutal/schema";
+} from "@brutal-ai/schema";
 
 /**
  * The TypeScript SDK. Give the agent the `report_feedback` tool, wrap its other tools so their
@@ -181,7 +181,7 @@ export function createBrutal(options: BrutalOptions) {
             ...extra,
             conversation_id: conversationId,
             recent_tool_calls: [...(buffers.get(conversationId) ?? [])],
-            sdk: "@brutal/sdk",
+            sdk: "@brutal-ai/sdk",
             sdk_version: SDK_VERSION,
           },
         });

@@ -1,4 +1,4 @@
-import type { Context, Report, ReportInput, ReportUpdate, Status } from "@brutal/schema";
+import type { Context, Report, ReportInput, ReportUpdate, Status } from "@brutal-ai/schema";
 
 /**
  * A schema change. Never edit or reorder one that has shipped; add a new one. One SQL statement

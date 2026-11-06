@@ -5,12 +5,15 @@ on:
     branches: [main]
 env:
   CF_SEND_TELEMETRY: "false"
+  # No owner's settings here: the example stands in for a brutal.config.json.
+  BRUTAL_CONFIG: brutal.config.example.json
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run --cwd worker deploy:dry
+      - run: bun run pack

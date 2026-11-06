@@ -1,4 +1,4 @@
-import { ReportInput, ReportUpdate, toolDefinition } from "@brutal/schema";
+import { ReportInput, ReportUpdate, toolDefinition } from "@brutal-ai/schema";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { reportPage, reportsPage, setupPage } from "./dashboard";
