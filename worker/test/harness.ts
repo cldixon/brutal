@@ -44,7 +44,8 @@ export function harness(env: Record<string, string> = {}) {
       mail.push({ to, subject, text });
     },
   });
-  const bindings = { DB: bunD1(), ...env };
+  // Open sign-up unless a test says otherwise; production is invite-only.
+  const bindings = { DB: bunD1(), SIGNUP: "open", ...env };
   const origin = "https://brutal.test";
 
   /** A request as the web app makes it: same origin, JSON, the session cookie if given. */

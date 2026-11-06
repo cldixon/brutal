@@ -48,13 +48,16 @@ async function verify(event: SubmitEvent) {
 
 <h1>Sign in</h1>
 {#if step === "email"}
-  <p>We'll email you a code. No password.</p>
+  <p>We'll email you a code, no password. Brutal is invite-only for now: if you're new, we'll add you to the waitlist.</p>
   <form class="row" onsubmit={sendCode}>
     <input type="email" bind:value={email} placeholder="you@example.com" autocomplete="email" required />
     <button class="primary" disabled={busy}>Email me a code</button>
   </form>
 {:else}
-  <p>Enter the code we sent to <strong>{email}</strong>. It works for 15 minutes.</p>
+  <p>
+    If <strong>{email}</strong> has an account or an invite, we've emailed it a code that works
+    for 15 minutes. Otherwise it's on the waitlist, and we'll be in touch.
+  </p>
   {#if devCode}
     <p class="muted">Local dev: the code is <code>{devCode}</code>.</p>
   {/if}

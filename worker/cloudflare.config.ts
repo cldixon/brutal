@@ -35,6 +35,9 @@ export default defineConfig(({ mode }) => {
         DB: bindings.d1({ name: "brutal-accounts" }),
         PROJECT: bindings.durableObject({ worker: "brutal", exportName: "Project" }),
         ASSETS: bindings.assets(),
+        // Invite-only in production, as Tempra: accounts, invited emails and OPERATOR_EMAIL (a
+        // secret) get codes; anyone else joins the waitlist. Open in local dev.
+        SIGNUP: bindings.text(local ? "open" : "invite"),
         // Sign-in codes by mail, once a sending domain is set up (BRUTAL_MAIL_FROM at deploy).
         ...(MAIL_FROM && {
           EMAIL: bindings.sendEmail({ allowedSenderAddresses: [MAIL_FROM] }),

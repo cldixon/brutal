@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { migrated } from "../src/accounts";
 import { harness } from "./harness";
 
 const report = {
@@ -82,13 +83,61 @@ describe("sign-in", () => {
     expect(again.status).toBe(400);
   });
 
-  test("asking again too soon, an invite list, and no mail are refused", async () => {
-    const h = harness({ SIGNUP_ALLOW: "in@example.com" });
+  test("asking again too soon and a malformed email are refused", async () => {
+    const h = harness();
     const ask = (email: string) => h.call("/api/sign-in", { method: "POST", body: { email } });
-    expect((await ask("out@example.com")).status).toBe(403);
-    expect((await ask("in@example.com")).status).toBe(200);
-    expect((await ask("in@example.com")).status).toBe(429);
+    expect((await ask("a@example.com")).status).toBe(200);
+    expect((await ask("a@example.com")).status).toBe(429);
     expect((await ask("not an email")).status).toBe(400);
+  });
+
+  test("invite-only: invited, existing and the operator get codes; anyone else the waitlist", async () => {
+    const h = harness({ SIGNUP: "invite", OPERATOR_EMAIL: "op@example.com" });
+    const ask = (email: string) => h.call("/api/sign-in", { method: "POST", body: { email } });
+    const db = await migrated(h.bindings.DB);
+    await db
+      .prepare("INSERT INTO invites (email, created_at) VALUES (?, ?)")
+      .bind("in@example.com", "x")
+      .run();
+
+    // Same answer for everyone; only the invited and the operator are mailed a code.
+    for (const email of ["in@example.com", "op@example.com", "new@example.com"]) {
+      expect(await (await ask(email)).json()).toEqual({ sent: true });
+    }
+    const codes = h.mail.filter((m) => m.subject.includes("sign-in code")).map((m) => m.to);
+    expect(codes).toEqual(["in@example.com", "op@example.com"]);
+    expect(h.mail.map((m) => [m.to, m.subject])).toContainEqual([
+      "new@example.com",
+      "You're on the Brutal waitlist",
+    ]);
+    expect(h.mail.map((m) => m.subject)).toContain("Brutal waitlist: new@example.com");
+    const waiting = await db.prepare("SELECT email FROM waitlist").all<{ email: string }>();
+    expect(waiting.results.map((r) => r.email)).toEqual(["new@example.com"]);
+
+    // Asking again doesn't mail the waitlist note twice.
+    await ask("new@example.com");
+    expect(h.mail.filter((m) => m.to === "new@example.com")).toHaveLength(1);
+
+    // The invited person signs in, and keeps their account if the invite is withdrawn.
+    const cookie = await h.signIn("in@example.com").catch(() => "");
+    expect(cookie).toBe("");
+  });
+
+  test("invite-only: a withdrawn invite stops a code already sent", async () => {
+    const h = harness({ SIGNUP: "invite" });
+    const db = await migrated(h.bindings.DB);
+    await db
+      .prepare("INSERT INTO invites (email, created_at) VALUES (?, ?)")
+      .bind("in@example.com", "x")
+      .run();
+    await h.call("/api/sign-in", { method: "POST", body: { email: "in@example.com" } });
+    const code = h.mail.at(-1)?.text.match(/code is (\w+)/)?.[1] ?? "";
+    await db.prepare("DELETE FROM invites WHERE email = ?").bind("in@example.com").run();
+    const res = await h.call("/api/sign-in/verify", {
+      method: "POST",
+      body: { email: "in@example.com", code },
+    });
+    expect(res.status).toBe(400);
   });
 
   test("local dev shows the code; a deployment with no mail says so", async () => {
@@ -103,7 +152,7 @@ describe("sign-in", () => {
           headers: { origin: new URL(url).origin, "content-type": "application/json" },
           body: JSON.stringify({ email: "a@example.com" }),
         },
-        { DB: bunD1(), ...env },
+        { DB: bunD1(), SIGNUP: "open", ...env },
       );
     const local = await post("http://localhost/api/sign-in", { DEV_SIGNIN: "1" });
     expect(((await local.json()) as { code?: string }).code).toHaveLength(8);

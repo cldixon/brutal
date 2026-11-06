@@ -49,6 +49,14 @@ const MIGRATIONS: Migration[] = [
       "CREATE INDEX keys_project ON keys (project_id)",
     ],
   },
+  {
+    // Invite-only sign-up, as Tempra: who may sign up, and who asked without an invite.
+    name: "0002_invites_waitlist",
+    statements: [
+      "CREATE TABLE invites (email TEXT PRIMARY KEY, created_at TEXT NOT NULL)",
+      "CREATE TABLE waitlist (email TEXT PRIMARY KEY, created_at TEXT NOT NULL)",
+    ],
+  },
 ];
 
 /**
@@ -210,6 +218,29 @@ export async function useCode(db: D1Database, email: string, typed: string): Pro
       .run();
   }
   return { ok: true, user };
+}
+
+// --- Invites and the waitlist ----------------------------------------------------------------
+
+/** Whether `email` may get a sign-in code under invite-only sign-up: an account, or an invite. */
+export async function mayGetCode(db: D1Database, email: string): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1 FROM users WHERE email = ?1
+       UNION SELECT 1 FROM invites WHERE email = ?1 LIMIT 1`,
+    )
+    .bind(email)
+    .first();
+  return row !== null;
+}
+
+/** Puts `email` on the waitlist; true the first time, so it is told (and the operator) once. */
+export async function joinWaitlist(db: D1Database, email: string): Promise<boolean> {
+  const result = await db
+    .prepare("INSERT OR IGNORE INTO waitlist (email, created_at) VALUES (?, ?)")
+    .bind(email, now())
+    .run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 // --- Sessions ---------------------------------------------------------------------------------

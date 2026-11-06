@@ -24,7 +24,11 @@ The account model is Tempra's (cldixon/tempra), kept small:
 - **Sign-in** by email code (Tempra's: 8 Crockford base32 characters, bound to the email, 15
   minutes, 5 tries, one per 30 s), session cookie `__Host-brutal_session` (hash stored, 30 days),
   every state-changing `/api` call checked to come from this site (Origin, else Sec-Fetch-Site).
-  `SIGNUP_ALLOW` (a Worker secret, comma-separated emails) limits who may sign in; unset, anyone.
+  **Invite-only**, as Tempra: with `SIGNUP=invite` (production; `open` in local dev) only
+  accounts, invited emails (D1 `invites`) and `OPERATOR_EMAIL` (a Worker secret) get a code;
+  anyone else joins the `waitlist`, is told once, and the operator is told. Every email gets the
+  same answer, so the page never says who has an account; verifying a code checks the invite
+  again. `bun run admin invite|uninvite|waitlist|users` (scripts/admin.ts) manages it through `cf`.
   Mail goes through Cloudflare Email Service when `BRUTAL_MAIL_FROM` is set at deploy (a repo
   variable in CI); local dev with `DEV_SIGNIN=1` (worker/.dev.vars) shows the code instead.
 - **Keys** belong to a project: ingest (files reports) and read (also reads and triages), stored

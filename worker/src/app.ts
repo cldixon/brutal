@@ -12,9 +12,11 @@ import {
   endSession,
   findKey,
   issueCode,
+  joinWaitlist,
   type Key,
   listKeys,
   listProjects,
+  mayGetCode,
   migrated,
   newSession,
   normalizeEmail,
@@ -42,8 +44,13 @@ export interface Bindings {
   MAIL_FROM?: string;
   /** Local dev: sign-in codes are shown on the page instead of mailed (loopback hosts only). */
   DEV_SIGNIN?: string;
-  /** Comma-separated emails that may sign in (a secret); unset lets anyone in. */
-  SIGNUP_ALLOW?: string;
+  /**
+   * Who may sign up (Tempra's SIGNUP): `invite` (production) gives codes only to accounts,
+   * invited emails and the operator, and puts anyone else on the waitlist; `open` lets anyone in.
+   */
+  SIGNUP?: string;
+  /** The operator (a secret): always let in, and told when someone joins the waitlist. */
+  OPERATOR_EMAIL?: string;
 }
 
 export interface MailBinding {
@@ -173,13 +180,26 @@ export function createApp(overrides: Partial<Deps> = {}) {
     const body = (await c.req.json().catch(() => ({}))) as { email?: unknown };
     const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
     if (!EMAIL.test(email) || email.length > 254) return problem("Enter a valid email.", 400);
-    const allow = (c.env.SIGNUP_ALLOW ?? "").split(",").map(normalizeEmail).filter(Boolean);
-    if (allow.length > 0 && !allow.includes(email)) {
-      return problem("Brutal is invite-only for now.", 403);
-    }
     const dev = devSignIn(c);
     const mailer = deps.mailer(c.env);
     if (!dev && !mailer) return problem("Sign-in mail isn't set up on this deployment.", 503);
+    const operator = c.env.OPERATOR_EMAIL ? normalizeEmail(c.env.OPERATOR_EMAIL) : "";
+    const open = c.env.SIGNUP === "open";
+    if (!open && email !== operator && !(await mayGetCode(c.var.db, email))) {
+      // Not invited: onto the waitlist, with the same answer an account gets, so the page never
+      // says who has one (Tempra's way in). Told once; the operator too.
+      if (await joinWaitlist(c.var.db, email)) {
+        await mailer?.(
+          email,
+          "You're on the Brutal waitlist",
+          "Thanks for your interest in Brutal. Sign-up is by invitation for now; we'll email " +
+            "you when there's room.\n",
+        );
+        if (operator)
+          await mailer?.(operator, `Brutal waitlist: ${email}`, `${email} asked to sign in.\n`);
+      }
+      return c.json({ sent: true });
+    }
     const code = await issueCode(c.var.db, email);
     if (!code) return problem("A code was just sent. Wait a few seconds and try again.", 429);
     if (dev) {
@@ -199,6 +219,11 @@ export function createApp(overrides: Partial<Deps> = {}) {
     const body = (await c.req.json().catch(() => ({}))) as { email?: unknown; code?: unknown };
     const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
     const code = typeof body.code === "string" ? body.code : "";
+    // Checked again: an invite may have been withdrawn since the code went out.
+    const operator = c.env.OPERATOR_EMAIL ? normalizeEmail(c.env.OPERATOR_EMAIL) : "";
+    if (c.env.SIGNUP !== "open" && email !== operator && !(await mayGetCode(c.var.db, email))) {
+      return problem("That code isn't right.", 400);
+    }
     const result = await useCode(c.var.db, email, code);
     if (!result.ok) {
       return problem(
