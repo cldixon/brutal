@@ -56,7 +56,16 @@ for (const name of PACKAGES) {
     "--tag",
     "stage",
     ...(dryRun ? ["--dry-run"] : []),
+    ...(otp ? ["--otp", otp] : []),
   ];
-  await $`npm ${args}`.cwd(dir);
+  // Attached to this terminal, so npm's two-factor prompt reaches the person running this.
+  const code = await Bun.spawn(["npm", ...args], {
+    cwd: dir,
+    stdio: ["inherit", "inherit", "inherit"],
+  }).exited;
+  if (code !== 0) {
+    console.error(`✗ ${name} was not published (npm exited ${code}). Re-run to continue.`);
+    process.exit(code);
+  }
   console.log(`✓ ${dryRun ? "Would publish" : "Published"} ${name}@${VERSION}`);
 }
