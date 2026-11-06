@@ -1,4 +1,8 @@
-import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
+import {
+  getOAuthApi,
+  OAuthProvider,
+  type OAuthProviderOptions,
+} from "@cloudflare/workers-oauth-provider";
 import { findKey, type Key, migrated, ownedProject } from "./accounts";
 import { type Bindings, createApp, type Deps, defaultDeps } from "./app";
 import { handleMcp } from "./mcp";
@@ -28,9 +32,9 @@ function invalidToken(origin: string, why: string): Response {
  * hands everything else to the app, whose /authorize is the consent (oauth.ts). The canonical
  * resource is `<origin>/mcp`, so one provider is built per origin the Worker is reached on.
  *
- * Two MCP servers, one per host: the app's host serves the feedback server (`report_feedback`
- * only, what an agent in someone's product sees), REVIEW_ORIGIN serves the review server (the
- * triage tools, for the developers' coding agents). The provider checks a token's audience
+ * Two MCP servers, one per host: FEEDBACK_ORIGIN serves the feedback server (`report_feedback`
+ * only, what an agent using someone's tools sees), REVIEW_ORIGIN the review server (the triage
+ * tools, for the developers' coding agents). The app's own host serves neither, nor OAuth. The provider checks a token's audience
  * against its host's resource, so a connection made on one host never works on the other.
  */
 export function createWorker(overrides: Partial<Deps> = {}) {
@@ -38,11 +42,9 @@ export function createWorker(overrides: Partial<Deps> = {}) {
   const app = createApp(overrides);
   const providers = new Map<string, OAuthProvider<Bindings>>();
 
-  const providerFor = (origin: string, role: Role) => {
-    let provider = providers.get(origin);
-    if (provider) return provider;
+  const optionsFor = (origin: string, role: Role): OAuthProviderOptions<Bindings> => {
     const resource = `${origin}/mcp`;
-    provider = new OAuthProvider<Bindings>({
+    return {
       apiRoute: "/mcp",
       apiHandler: {
         async fetch(request, env, ctx) {
@@ -87,8 +89,15 @@ export function createWorker(overrides: Partial<Deps> = {}) {
         const props: GrantProps = { key: found };
         return { props, audience: resource };
       },
-    });
-    providers.set(origin, provider);
+    };
+  };
+
+  const providerFor = (origin: string, role: Role) => {
+    let provider = providers.get(origin);
+    if (!provider) {
+      provider = new OAuthProvider<Bindings>(optionsFor(origin, role));
+      providers.set(origin, provider);
+    }
     return provider;
   };
 
@@ -101,14 +110,20 @@ export function createWorker(overrides: Partial<Deps> = {}) {
         return Promise.resolve(Response.redirect(url.toString(), 308));
       }
       const role = roleOf(url.origin, env);
-      // The review host is for MCP and connecting to it; its home is the app's.
-      if (role === "review" && url.pathname === "/" && env.APP_ORIGIN) {
-        return Promise.resolve(Response.redirect(`${env.APP_ORIGIN}/`, 302));
-      }
       // The provider puts its helpers on env once (`if (!env.OAUTH_PROVIDER)`), and an isolate's
       // env is shared by every request: a per-request env keeps each host's consent on its own
       // provider.
       const scoped = Object.create(env) as Bindings;
+      // The app's own host serves no MCP and no OAuth: straight to the app, with the helpers it
+      // lists and revokes connections through (grants are in one KV for both servers).
+      if (!role) {
+        scoped.OAUTH_PROVIDER = getOAuthApi(optionsFor(url.origin, "report"), scoped);
+        return Promise.resolve(app.fetch(request, scoped, ctx));
+      }
+      // The MCP hosts are for MCP and connecting to it; their home is the app's.
+      if (url.pathname === "/" && env.APP_ORIGIN && url.origin !== env.APP_ORIGIN) {
+        return Promise.resolve(Response.redirect(`${env.APP_ORIGIN}/`, 302));
+      }
       return providerFor(url.origin, role).fetch(request, scoped, ctx);
     },
   };

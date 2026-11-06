@@ -54,6 +54,8 @@ export interface Bindings {
   OPERATOR_EMAIL?: string;
   /** The app's own origin, for links in mail sent from the operator's portal. */
   APP_ORIGIN?: string;
+  /** The feedback MCP server's origin (worker.ts); unset, there is none. */
+  FEEDBACK_ORIGIN?: string;
   /** The review MCP server's origin (worker.ts); unset, there is none. */
   REVIEW_ORIGIN?: string;
   /** The landing page's Worker (site/): `/` for people signed out, and its own files. */
@@ -298,7 +300,8 @@ export function createApp(overrides: Partial<Deps> = {}) {
     c.json({
       project: c.var.project,
       keys: await listKeys(c.var.db, c.var.project.id),
-      // Where agents connect: the feedback server here, the review server on its own host.
+      // Where agents connect: the feedback and review servers' hosts.
+      feedback_origin: c.env.FEEDBACK_ORIGIN ?? null,
       review_origin: c.env.REVIEW_ORIGIN ?? null,
     }),
   );

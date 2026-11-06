@@ -4,14 +4,14 @@ import { COMPATIBILITY_DATE, DEPLOYMENT } from "../deploy.config.ts";
 /**
  * The app's Worker for the `cf` CLI (`cf dev`, `cf deploy`, `cf workers types`): the API (/v1), MCP
  * (/mcp), the web app's API (/api) and the Svelte app's static files, on DEPLOYMENT.app.host, and
- * the review MCP server on DEPLOYMENT.review.host. The
+ * the MCP servers on DEPLOYMENT.feedback.host and DEPLOYMENT.review.host. The
  * landing page (site/) answers `/` for people signed out, through SITE; the operator's portal
  * (admin/) calls the Operator entrypoint. Accounts live in D1; each project's reports in its own
  * Durable Object. With no mode (`cf dev`, types) no domain is attached and nothing is bound.
  */
 export default defineConfig(({ mode }) => {
   const local = mode === undefined || mode === "local";
-  const { app, review, site, mailFrom } = DEPLOYMENT;
+  const { app, feedback, review, site, mailFrom } = DEPLOYMENT;
   return {
     worker: {
       name: app.name,
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
       compatibilityFlags: ["nodejs_compat", "global_fetch_strictly_public"],
       entrypoint: "./src/index.ts",
       observability: { enabled: true },
-      domains: local ? [] : [app.host, review.host],
+      domains: local ? [] : [app.host, feedback.host, review.host],
       workersDev: false,
       // Previews would share production's D1 and Durable Objects.
       previewUrls: false,
@@ -55,7 +55,11 @@ export default defineConfig(({ mode }) => {
         OAUTH_KV: bindings.kv(),
         ASSETS: bindings.assets(),
         APP_ORIGIN: bindings.text(local ? "http://localhost:8787" : `https://${app.host}`),
-        // The review MCP server's host (worker.ts). Locally 127.0.0.1 stands in for it.
+        // The MCP servers' hosts (worker.ts). Locally the app's host is the feedback server too,
+        // and 127.0.0.1 stands in for review.
+        FEEDBACK_ORIGIN: bindings.text(
+          local ? "http://localhost:8787" : `https://${feedback.host}`,
+        ),
         REVIEW_ORIGIN: bindings.text(local ? "http://127.0.0.1:8787" : `https://${review.host}`),
         // Invite-only in production, as Tempra: accounts, invited emails and OPERATOR_EMAIL (a
         // secret, set by admin/scripts/deploy.ts) get codes; anyone else joins the waitlist.

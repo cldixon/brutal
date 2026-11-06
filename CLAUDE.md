@@ -12,8 +12,9 @@ A hosted service, deployed from this repo, laid out as Tempra is: three Workers,
 hosts in **`deploy.config.ts`** (the only file to change for a new domain: the app on the domain,
 the portal on admin.<domain>, `mailFrom` on a sending subdomain once one is set up).
 
-- **`brutal`** (`worker/` + `app/`): the app on the main host, thatsbrutal.fyi, and the review
-  MCP server on review.thatsbrutal.fyi (`REVIEW_ORIGIN`; locally `http://127.0.0.1:8787`).
+- **`brutal`** (`worker/` + `app/`): the app on the main host, thatsbrutal.fyi, and the two MCP
+  servers on feedback.thatsbrutal.fyi (`FEEDBACK_ORIGIN`; the app's host serves no MCP or OAuth) and review.thatsbrutal.fyi (`REVIEW_ORIGIN`; locally
+  `http://127.0.0.1:8787`).
 - **`brutal-site`** (`site/`, its Astro project in `site/web/`, kept apart because cf switches to
   a framework build when it finds Astro in a folder): the landing page. No host of its own; the
   app answers `/` from it for people signed out (no cookie forwarded, `Vary: Cookie`) and
@@ -51,11 +52,11 @@ The account model is Tempra's (cldixon/tempra), kept small:
 - **Keys** belong to a project: ingest (files reports) and read (also reads and triages), stored
   as hashes, made and revoked in the web app.
 - **Two MCP servers, one per host** (`worker/src/mcp.ts`, role from `roleOf` in `oauth.ts`): the
-  **feedback** server on the app's host has `report_feedback` alone (with server instructions),
+  **feedback** server on `FEEDBACK_ORIGIN` has `report_feedback` alone (with server instructions),
   so an agent using someone's tools never sees that reports can be read; the **review** server
   on `REVIEW_ORIGIN` has `list_reports`, `get_report`, `update_report` for the developers'
-  coding agents. Keys: ingest or read on feedback, read only on review. The review host's `/`
-  redirects to the app; its other pages work (sign-in for its consent; the `__Host-` cookie is
+  coding agents. Keys: ingest or read on feedback, read only on review. Both MCP hosts' `/`
+  redirect to the app; its other pages work (sign-in for its consent; the `__Host-` cookie is
   per host).
 - **Connected apps over OAuth** (claude.ai's connectors and any MCP client that speaks OAuth),
   after Tempra's: `worker/src/worker.ts` puts Cloudflare's `@cloudflare/workers-oauth-provider` in

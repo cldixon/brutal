@@ -51,6 +51,7 @@ export function harness(env: Record<string, unknown> = {}) {
     OAUTH_KV: memoryKV(),
     SIGNUP: "open",
     APP_ORIGIN: "https://brutal.test",
+    FEEDBACK_ORIGIN: "https://feedback.brutal.test",
     REVIEW_ORIGIN: "https://review.brutal.test",
     ...env,
   };

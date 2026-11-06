@@ -280,7 +280,7 @@ describe("MCP", () => {
   test("an agent files with the ingest key; a coding agent triages with the read key", async () => {
     const h = harness();
     const a = await owner(h);
-    const connect = async (key: string, at = "https://brutal.test") => {
+    const connect = async (key: string, at = "https://feedback.brutal.test") => {
       const client = new Client({ name: "test", version: "0" });
       await client.connect(
         new StreamableHTTPClientTransport(new URL(`${at}/mcp`), {

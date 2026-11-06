@@ -5,6 +5,7 @@ import { harness } from "./harness";
 
 /** The connector flow as claude.ai drives it (after Tempra's worker/test/oauth-flow.ts). */
 const ORIGIN = "https://brutal.test";
+const FEEDBACK = "https://feedback.brutal.test";
 const REVIEW = "https://review.brutal.test";
 const REDIRECT = "https://claude.ai/api/mcp/auth_callback";
 
@@ -18,7 +19,7 @@ type H = ReturnType<typeof harness>;
 const req = (h: H, path: string, init: RequestInit = {}) =>
   h.app.request(new Request(new URL(path, ORIGIN), init));
 
-async function register(h: H, at = ORIGIN) {
+async function register(h: H, at = FEEDBACK) {
   const r = await req(h, `${at}/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -35,7 +36,7 @@ async function register(h: H, at = ORIGIN) {
 }
 
 /** Starts an authorization as the signed-in person: the consent page, its handle, PKCE. */
-async function begin(h: H, clientId: string, cookie: string, at = ORIGIN) {
+async function begin(h: H, clientId: string, cookie: string, at = FEEDBACK) {
   const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
   const query = new URLSearchParams({
@@ -71,7 +72,7 @@ async function approve(
   });
 }
 
-async function exchange(h: H, clientId: string, location: string, verifier: string, at = ORIGIN) {
+async function exchange(h: H, clientId: string, location: string, verifier: string, at = FEEDBACK) {
   const r = await req(h, `${at}/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -88,7 +89,7 @@ async function exchange(h: H, clientId: string, location: string, verifier: stri
   return (await r.json()) as { access_token: string; scope: string };
 }
 
-async function mcp(h: H, token: string, at = ORIGIN) {
+async function mcp(h: H, token: string, at = FEEDBACK) {
   const client = new Client({ name: "Claude", version: "0" });
   await client.connect(
     new StreamableHTTPClientTransport(new URL(`${at}/mcp`), {
@@ -122,13 +123,18 @@ async function connect(h: H, at: string, project?: string) {
 describe("connecting an app over OAuth", () => {
   test("discovery says where to register and sign in", async () => {
     const h = harness();
-    const meta = (await (await req(h, "/.well-known/oauth-authorization-server")).json()) as {
+    const meta = (await (
+      await req(h, `${FEEDBACK}/.well-known/oauth-authorization-server`)
+    ).json()) as {
       registration_endpoint: string;
       authorization_endpoint: string;
     };
-    expect(meta.registration_endpoint).toBe(`${ORIGIN}/register`);
-    expect(meta.authorization_endpoint).toBe(`${ORIGIN}/authorize`);
-    const unauthorized = await req(h, "/mcp", { method: "POST" });
+    expect(meta.registration_endpoint).toBe(`${FEEDBACK}/register`);
+    expect(meta.authorization_endpoint).toBe(`${FEEDBACK}/authorize`);
+    // The app's own host serves no MCP and no OAuth.
+    expect((await req(h, `${ORIGIN}/mcp`, { method: "POST" })).status).not.toBe(401);
+    expect((await req(h, `${ORIGIN}/register`, { method: "POST" })).status).not.toBe(201);
+    const unauthorized = await req(h, `${FEEDBACK}/mcp`, { method: "POST" });
     expect(unauthorized.status).toBe(401);
     expect(unauthorized.headers.get("www-authenticate")).toContain("resource_metadata");
   });
@@ -138,18 +144,18 @@ describe("connecting an app over OAuth", () => {
     const clientId = await register(h);
     const flow = await begin(h, clientId, "");
     expect(flow.page.status).toBe(302);
-    const to = new URL(flow.page.headers.get("location") ?? "", ORIGIN);
+    const to = new URL(flow.page.headers.get("location") ?? "", FEEDBACK);
     expect(to.pathname).toBe("/sign-in");
     expect(to.searchParams.get("next")?.startsWith("/authorize?")).toBe(true);
   });
 
   test("the feedback server: the connector files reports into the chosen project, and nothing else", async () => {
     const h = harness();
-    const { token, cookie, project, flow } = await connect(h, ORIGIN);
+    const { token, cookie, project, flow } = await connect(h, FEEDBACK);
     expect(flow.html).toContain("file feedback reports");
     expect(flow.html).not.toContain('name="access"');
     expect(token.scope).toBe("brutal:report");
-    const agent = await mcp(h, token.access_token);
+    const agent = await mcp(h, token.access_token, FEEDBACK);
     expect((await agent.listTools()).tools.map((t) => t.name)).toEqual(["report_feedback"]);
     expect(agent.getInstructions()).toContain("report_feedback");
     const filed = (await agent.callTool({
@@ -174,7 +180,7 @@ describe("connecting an app over OAuth", () => {
     expect(token.scope).toBe("brutal:triage");
 
     // The token is for the review server's resource: the feedback server refuses it.
-    const elsewhere = await req(h, "/mcp", {
+    const elsewhere = await req(h, `${FEEDBACK}/mcp`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${token.access_token}`,
@@ -269,16 +275,18 @@ describe("connecting an app over OAuth", () => {
     const ingest = await key("ingest");
     const tools = async (secret: string, at: string) =>
       (await (await mcp(h, secret, at)).listTools()).tools.map((t) => t.name).sort();
-    expect(await tools(read, ORIGIN)).toEqual(["report_feedback"]);
-    expect(await tools(ingest, ORIGIN)).toEqual(["report_feedback"]);
+    expect(await tools(read, FEEDBACK)).toEqual(["report_feedback"]);
+    expect(await tools(ingest, FEEDBACK)).toEqual(["report_feedback"]);
     expect(await tools(read, REVIEW)).toEqual(["get_report", "list_reports", "update_report"]);
     await expect(mcp(h, ingest, REVIEW)).rejects.toThrow();
   });
 
-  test("the review host's home is the app's", async () => {
+  test("the MCP hosts' home is the app's", async () => {
     const h = harness();
-    const home = await req(h, `${REVIEW}/`, { redirect: "manual" });
-    expect(home.status).toBe(302);
-    expect(home.headers.get("location")).toBe(`${ORIGIN}/`);
+    for (const at of [FEEDBACK, REVIEW]) {
+      const home = await req(h, `${at}/`, { redirect: "manual" });
+      expect(home.status).toBe(302);
+      expect(home.headers.get("location")).toBe(`${ORIGIN}/`);
+    }
   });
 });

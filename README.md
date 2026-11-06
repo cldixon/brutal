@@ -13,7 +13,7 @@ Two MCP servers, so an agent using your tools never learns that reports can be r
 
 | Surface                                          | Use                                                                                                         | Key          |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------ |
-| `https://thatsbrutal.fyi/mcp`                    | Feedback MCP: `report_feedback`, nothing else                                                               | ingest, read |
+| `https://feedback.thatsbrutal.fyi/mcp`           | Feedback MCP: `report_feedback`, nothing else                                                               | ingest, read |
 | `https://review.thatsbrutal.fyi/mcp`             | Review MCP: `list_reports`, `get_report`, `update_report`                                                   | read         |
 | `POST /v1/reports`                               | file one report                                                                                             | ingest       |
 | `GET /v1/reports`, `GET`/`PATCH /v1/reports/:id` | list, read, triage                                                                                          | read         |
@@ -28,7 +28,7 @@ to test your tools with Claude and read what it reported in the same place.
 **Claude Code, scripts and the SDK** use a project's key:
 
 ```sh
-claude mcp add --transport http brutal https://thatsbrutal.fyi/mcp --header "Authorization: Bearer <key>"
+claude mcp add --transport http brutal https://feedback.thatsbrutal.fyi/mcp --header "Authorization: Bearer <key>"
 claude mcp add --transport http brutal-review https://review.thatsbrutal.fyi/mcp --header "Authorization: Bearer <read key>"
 ```
 
@@ -51,11 +51,11 @@ const searchParts = convo.wrap("search_parts", rawSearchParts); // recorded from
 
 Three Cloudflare Workers, as Tempra is built. Their names and hosts are in `deploy.config.ts`.
 
-| Folder                | Worker         | What it is                                                                                                                                                                                                                      |
-| --------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `worker/` + `app/`    | `brutal`       | The app on the main domain: the API (`/v1`), the feedback MCP (`/mcp`; the review MCP on `review.`), the web app's API (`/api`) and the Svelte 5 web app. Accounts are in D1; each project's reports in its own Durable Object. |
-| `site/` (`site/web/`) | `brutal-site`  | The landing page, built with Astro. No host of its own: the app shows it at `/` to people who aren't signed in, through a service binding.                                                                                      |
-| `admin/`              | `brutal-admin` | The operator's portal, on its own host behind Cloudflare Access: the waitlist, invites and accounts, through the app's `Operator` entrypoint.                                                                                   |
+| Folder                | Worker         | What it is                                                                                                                                                                                                                            |
+| --------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worker/` + `app/`    | `brutal`       | The app on the main domain: the API (`/v1`), the feedback MCP on `feedback.`, the review MCP on `review.`, the web app's API (`/api`) and the Svelte 5 web app. Accounts are in D1; each project's reports in its own Durable Object. |
+| `site/` (`site/web/`) | `brutal-site`  | The landing page, built with Astro. No host of its own: the app shows it at `/` to people who aren't signed in, through a service binding.                                                                                            |
+| `admin/`              | `brutal-admin` | The operator's portal, on its own host behind Cloudflare Access: the waitlist, invites and accounts, through the app's `Operator` entrypoint.                                                                                         |
 
 `packages/schema` and `packages/sdk` are the report schema and the TypeScript SDK, published to npm.
 

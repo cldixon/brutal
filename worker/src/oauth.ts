@@ -32,13 +32,19 @@ import {
 export const SCOPES = ["brutal:report", "brutal:triage"];
 
 /**
- * Which MCP server a host serves: "report" (the app's host: `report_feedback`, for agents in a
- * product) or "review" (REVIEW_ORIGIN: the triage tools, for the developers' coding agents).
+ * Which MCP server a host serves: "report" (FEEDBACK_ORIGIN: `report_feedback`, for agents using
+ * someone's tools) or "review" (REVIEW_ORIGIN: the triage tools, for the developers' coding
+ * agents); null for the app's own host, which serves neither.
  */
 export type Role = "report" | "review";
 
-export function roleOf(origin: string, env: { REVIEW_ORIGIN?: string }): Role {
-  return env.REVIEW_ORIGIN && origin === env.REVIEW_ORIGIN ? "review" : "report";
+export function roleOf(
+  origin: string,
+  env: { FEEDBACK_ORIGIN?: string; REVIEW_ORIGIN?: string },
+): Role | null {
+  if (env.REVIEW_ORIGIN && origin === env.REVIEW_ORIGIN) return "review";
+  if (env.FEEDBACK_ORIGIN && origin === env.FEEDBACK_ORIGIN) return "report";
+  return null;
 }
 
 /** The scopes a host's connections get. */
@@ -69,7 +75,12 @@ export interface GrantMetadata {
 }
 
 type Env = {
-  Bindings: { DB: D1Database; OAUTH_PROVIDER?: OAuthHelpers; REVIEW_ORIGIN?: string };
+  Bindings: {
+    DB: D1Database;
+    OAUTH_PROVIDER?: OAuthHelpers;
+    FEEDBACK_ORIGIN?: string;
+    REVIEW_ORIGIN?: string;
+  };
 };
 
 /** The consent page's look: the app's minimal stylesheet (app/public/consent.css). */
@@ -201,7 +212,7 @@ export function registerConsentRoutes<E extends Env>(app: Hono<E>) {
           email: user.email,
           projects,
           form: { project: projects[0]?.id ?? "new", newProject: "" },
-          role: roleOf(new URL(c.req.url).origin, c.env),
+          role: roleOf(new URL(c.req.url).origin, c.env) ?? "report",
         }),
         consent.headers,
       );
@@ -227,7 +238,7 @@ export function registerConsentRoutes<E extends Env>(app: Hono<E>) {
         project: String(body.get("project") ?? ""),
         newProject: String(body.get("new_project") ?? "").trim(),
       };
-      const role = roleOf(new URL(c.req.url).origin, c.env);
+      const role = roleOf(new URL(c.req.url).origin, c.env) ?? "report";
       const projects = await listProjects(db, user.id);
       const problem =
         form.project === "new"

@@ -16,14 +16,19 @@ let connections = $state<{ id: string; client: string; access: string; created_a
 
 const filters = $derived(new URLSearchParams(route.query));
 const origin = location.origin;
+let feedbackOrigin = $state<string | null>(null);
 let reviewOrigin = $state<string | null>(null);
 
 async function loadProject() {
-  const r = await api<{ project: Project; keys: KeyInfo[]; review_origin: string | null }>(
-    `/projects/${projectId}`,
-  );
+  const r = await api<{
+    project: Project;
+    keys: KeyInfo[];
+    feedback_origin: string | null;
+    review_origin: string | null;
+  }>(`/projects/${projectId}`);
   project = r.project;
   keys = r.keys;
+  feedbackOrigin = r.feedback_origin;
   reviewOrigin = r.review_origin;
   connections = (
     await api<{ connections: typeof connections }>(`/projects/${projectId}/connections`)
@@ -182,14 +187,14 @@ const olderHref = $derived.by(() => {
 
   <h2>Connect an agent</h2>
   <p>Two MCP servers. <strong>Feedback</strong>, for the agents using your tools: one tool, <code>report_feedback</code>; they never see the reports.</p>
-  <code class="block">{origin}/mcp</code>
+  <code class="block">{feedbackOrigin ?? origin}/mcp</code>
   {#if reviewOrigin}
     <p><strong>Review</strong>, for your coding agent: list, read and triage this project's reports.</p>
     <code class="block">{reviewOrigin}/mcp</code>
   {/if}
   <p>Claude (claude.ai, Desktop, mobile): Settings → Connectors → Add custom connector, with either URL. You'll sign in, then pick this project. Add both to try your tools and read the feedback in one place.</p>
   <p>Claude Code (or any MCP client) with a key: an ingest or read key on feedback, a read key on review.</p>
-  <code class="block">claude mcp add --transport http brutal {origin}/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
+  <code class="block">claude mcp add --transport http brutal {feedbackOrigin ?? origin}/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
   {#if reviewOrigin}
     <code class="block">claude mcp add --transport http brutal-review {reviewOrigin}/mcp --header "Authorization: Bearer &lt;read key&gt;"</code>
   {/if}
