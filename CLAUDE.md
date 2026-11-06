@@ -2,58 +2,71 @@
 
 ## Spec
 
-The design is the **Brutal — Handoff** Claude Doc: https://claude.ai/artifact/6vdZJyNoajH9EkVxHKiG6j.
-Read it before architectural decisions. Where this repo deliberately differs, it says so below.
+The original design is the **Brutal — Handoff** Claude Doc:
+https://claude.ai/artifact/6vdZJyNoajH9EkVxHKiG6j. Where this repo deliberately differs, it says so
+below. Next steps are GitHub issues.
 
-## Where the code differs from the handoff
+## What it is now
 
-- **Bun workspaces**, not pnpm; **`cf`** (Cloudflare's CLI, pinned in `worker/`), not Wrangler.
-  The Worker's cf config is built by `defineBrutal` (`worker/config.ts`) from an owner's
-  `brutal.config.json`; `worker/cloudflare.config.ts` uses it with the source entrypoint, as the
-  published `@brutal-ai/server` does with its prebuilt bundle. There is no `wrangler.jsonc`.
-  Find commands with `bunx cf cli search "<task>"` (generic wording), then `--help`.
-  Set `CF_SEND_TELEMETRY=false` in scripts and CI.
-- **MCP is stateless Streamable HTTP** with `@modelcontextprotocol/sdk` (a fresh server per request,
-  `worker/src/mcp.ts`), not the Agents SDK's `McpAgent`: no Durable Object is needed yet.
-- **Migrations apply themselves** on first use per isolate (`worker/src/db.ts`), so a
-  self-deployer never runs one. Never edit a shipped migration; only add.
-- **Dashboard sign-in** (`/dashboard`) is Cloudflare Access when an owner sets it up
-  (`brutal-server access`, `worker/cli/access.ts`: one-time PIN, an allow policy for their emails,
-  an app over `<domain>/dashboard` only, through `cf`), with the Worker re-checking Access's token
-  (`worker/src/access.ts`, adapted from Tempra's admin portal); otherwise Basic auth with the read
-  key. Access never covers `/v1`, `/mcp` or `/setup`, which take keys.
-- **Setup** (`worker/src/setup.ts`) takes a setup code, as igloo does: the `SETUP_CODE` secret,
-  or one generated on first use and written only to the Worker's logs. The claim is one D1 batch.
-- **The SDK depends on `@brutal-ai/schema` (and so zod)**, not zero runtime deps as the handoff
-  says.
-- **Self-hosted, released as packages** (the igloo model, not a hosted service): Brutal is
-  released software; owners run `bun create brutal-ai`, which makes a deploy folder holding
-  their `brutal.config.json` and depending on `@brutal-ai/server`. No owner-specific value goes
-  in this repo: `worker/brutal.config.json` is gitignored, `BRUTAL_*` variables override it,
-  `BRUTAL_CONFIG` names another file (CI: `brutal.config.example.json`), and a deploy with
-  neither fails rather than use defaults. `bun run pack` builds `@brutal-ai/server`,
-  `@brutal-ai/schema`, `@brutal-ai/sdk` and `create-brutal-ai` at `worker/package.json`'s
-  version. Releasing is bumping that version in a PR: on push to `main`, `release.yml` publishes
-  any version not yet on npm (trusted publishing, so npm is used there only) and tags it.
-  `scripts/first-release.ts` is the one-time bootstrap: npm only trusts a workflow for a
-  package that exists and refuses placeholder versions, so 0.1.0 is published by hand.
+A hosted app at **https://brutal.cldixon.dev** (temporary home), deployed from this repo. The
+self-hosted model (deploy folders, `@brutal-ai/server`, `create-brutal-ai`) was dropped; the
+focus is a person or team developing a custom agent, or testing a tool or MCP server with their
+agents. Shipping Brutal inside someone else's MCP server is a later extension.
 
-## Deployment
+The account model is Tempra's (cldixon/tempra), kept small:
 
-This repo deploys nothing. The reference instance, the Worker `brutal` on
-`https://brutal.cldixon.dev` (D1 `brutal`, claimed), deploys from its own repo,
-`cldixon/cldixon-brutal`, made with `bun create brutal-ai`: it holds the settings and depends on
-the published `@brutal-ai/server`, so a Brutal change reaches it as a release and then a
-`bun update` there. Do not create or delete Cloudflare resources without asking.
+- **D1** (`brutal-accounts`, `worker/src/accounts.ts`): users, sign-in codes, sessions, projects,
+  keys. Migrations apply themselves on first use per isolate; never edit a shipped one, only add.
+- **One Durable Object per project** (`Project`, `worker/src/project.ts`) holds that project's
+  reports in its own SQLite (`worker/src/reports.ts`, `ReportStore`, synchronous, free of Worker
+  APIs). The Worker reaches a project's DO only after checking a key of that project, or that the
+  session's person owns it (a stranger gets 404).
+- **Sign-in** by email code (Tempra's: 8 Crockford base32 characters, bound to the email, 15
+  minutes, 5 tries, one per 30 s), session cookie `__Host-brutal_session` (hash stored, 30 days),
+  every state-changing `/api` call checked to come from this site (Origin, else Sec-Fetch-Site).
+  `SIGNUP_ALLOW` (a Worker secret, comma-separated emails) limits who may sign in; unset, anyone.
+  Mail goes through Cloudflare Email Service when `BRUTAL_MAIL_FROM` is set at deploy (a repo
+  variable in CI); local dev with `DEV_SIGNIN=1` (worker/.dev.vars) shows the code instead.
+- **Keys** belong to a project: ingest (files reports) and read (also reads and triages), stored
+  as hashes, made and revoked in the web app.
+
+Routes: `/v1/*` and `/mcp` take a project's key; `/api/*` is the web app's API with the session
+cookie; everything else is the Svelte app's static files (SPA fallback; the Worker runs first
+only for `/api/*`, `/v1/*`, `/mcp`, `/healthz`).
+
+Durable Object RPC can't carry objects without a prototype (Hono's `c.req.query()`): copy them
+(`{ ...c.req.query() }`). The test harness refuses such arguments as RPC does.
+
+## Web app
+
+`app/`: Svelte 5 with runes, Vite, no SvelteKit; a tiny router (`router.svelte.ts`). Minimal on
+purpose: black on white, system fonts, plain links, no design system yet. Pages: landing, sign-in,
+projects, a project (reports with filters, keys, how to connect), a report (triage, recorded tool
+calls, context). CSP `script-src 'self'; style-src 'self'` (`app/public/_headers`). Biome lints only
+`<script>` blocks of `.svelte` files, so its unused-variable and import rules are off there;
+`svelte-check` covers them. Import the schema's lists from `@brutal-ai/schema/constants` in the
+app, so zod stays out of the bundle.
 
 ## Tooling
 
-- bun for everything (`bun install`, `bun run …`, `bun test`, `bunx`); no npm/npx/yarn/pnpm.
-- Biome for lint and format (`bun run format`). `bun run check` before every commit.
-- Tests run under `bun test`; D1 is `worker/test/d1.ts` over `bun:sqlite`; MCP tests use the SDK's
-  own client against the app in process.
+- bun for everything (`bun install`, `bun run …`, `bun test`, `bunx`); no npm/npx/yarn/pnpm (npm
+  only in `release.yml`, for trusted publishing).
+- **`cf`** (Cloudflare's CLI, pinned in `worker/`), not Wrangler; the Worker is configured in
+  `worker/cloudflare.config.ts` (`wrangler.config.ts` only names the assets directory). Find
+  commands with `bunx cf cli search "<task>"` (generic wording), then `--help`. Set
+  `CF_SEND_TELEMETRY=false`.
+- Biome for lint and format (`bun run format`). `bun run build` (the app) then `bun run check`
+  before every commit.
+- Tests run under `bun test`: D1 is `worker/test/d1.ts` over bun:sqlite; `worker/test/harness.ts`
+  runs the app in process with one bun:sqlite `ReportStore` per project and mail captured; MCP
+  tests use the SDK's own client.
 
-## Not built yet (handoff milestones)
+## Deployment and releases
 
-OpenAI/Bedrock/Mastra/LangChain tool formats and a model-driven eval script (M2), CLI (M4), clustering with Queues + Vectorize, issue
-sync, webhooks and the Deploy to Cloudflare button (M5), rate limits per conversation, retention.
+- CI (`.github/workflows/ci.yml`) deploys every green push to `main` (`bun run deploy`, needs the
+  repo secret `CLOUDFLARE_API_TOKEN`; skips without it). Do not create or delete Cloudflare
+  resources without asking.
+- `@brutal-ai/schema` and `@brutal-ai/sdk` are published together at `worker/package.json`'s
+  version: bump it in a PR, and `release.yml` publishes what's not on npm yet (trusted
+  publishing, provenance) and tags it. `@brutal-ai/server` and `create-brutal-ai` (0.1.0, 0.2.0)
+  belong to the dropped self-hosted model.

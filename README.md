@@ -1,124 +1,59 @@
 # Brutal
 
-Feedback for agents. An agent running inside your application calls one hidden tool,
-`report_feedback`, to tell its developers about friction, bugs, gaps in the tool layer, and
-tasks worth keeping as evals. Developers and coding agents read the reports back and triage them.
+Feedback for agents. An agent running inside your application calls one tool, `report_feedback`,
+to tell you about friction, bugs, gaps in its tools, and tasks worth keeping as evals. Each report
+arrives with the agent's recent tool calls attached. You, or your coding agent, read and triage
+them.
 
-This is the skeleton: one Cloudflare Worker on D1 that you deploy to your own account.
+Hosted at **https://brutal.cldixon.dev**: sign in with your email (a code is mailed to you), make
+a project for each agent or tool you're testing, and give the agent a key.
 
-| Surface                 | Where                                                                                                                            | Key    |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `POST /v1/reports`      | ingest one report                                                                                                                | ingest |
-| `GET /v1/reports`       | list, newest first; filter by `kind`, `status`, `tool_name`, `impact`, `agent_name`, `app_version`, `branch`; page with `before` | read   |
-| `GET /v1/reports/:id`   | one report with its context                                                                                                      | read   |
-| `PATCH /v1/reports/:id` | set `status`, link `issue_url`                                                                                                   | read   |
-| `GET /v1/schema/tool`   | the canonical tool definition (name, description, JSON Schema)                                                                   | public |
-| `/mcp`                  | ingest key: `report_feedback`; read key: `list_reports`, `get_report`, `update_report`, `get_eval_candidates`                    | either |
-| `/`                     | the dashboard (Basic auth: any username, the read key as password)                                                               | read   |
-| `/setup`                | first run: makes one ingest and one read key, once                                                                               | none   |
+## Connect an agent
 
-Ingest keys only submit, so they are safe in an app's backend. Read keys read and triage.
-
-## Run it
+| Surface                                          | Use                                                                                                                               | Key    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `/mcp`                                           | MCP: an ingest key gives `report_feedback`; a read key gives `list_reports`, `get_report`, `update_report`, `get_eval_candidates` | either |
+| `POST /v1/reports`                               | file one report                                                                                                                   | ingest |
+| `GET /v1/reports`, `GET`/`PATCH /v1/reports/:id` | list, read, triage                                                                                                                | read   |
+| `GET /v1/schema/tool`                            | the canonical tool definition (name, description, JSON Schema)                                                                    | none   |
+| `@brutal-ai/sdk`                                 | TypeScript: the tool in Anthropic and Vercel AI SDK shapes, plus a recorder that attaches recent tool calls                       | ingest |
 
 ```sh
-bun install
-bun run dev                      # cf dev on http://localhost:8787
-open http://localhost:8787/setup # make your keys with the setup code
+claude mcp add --transport http brutal https://brutal.cldixon.dev/mcp --header "Authorization: Bearer <key>"
 ```
-
-The setup code is the `SETUP_CODE` secret if you set one; otherwise the Worker makes one when
-`/setup` first opens and writes it to its logs (the `cf dev` output locally; Workers Logs in the
-Cloudflare dashboard when deployed). It works once.
-
-File a report:
-
-```sh
-curl -X POST localhost:8787/v1/reports \
-  -H "authorization: Bearer $BRUTAL_INGEST_KEY" -H 'content-type: application/json' \
-  -d '{"kind":"friction","title":"Year filter rejects 2024-25","summary":"search_parts refused a fiscal-year range.","tool_name":"search_parts","impact":"worked_around","context":{"conversation_id":"c1","app_version":"1.4.0"}}'
-```
-
-Connect Claude Code, as an agent that reports and as a developer that triages:
-
-```sh
-claude mcp add --transport http brutal http://localhost:8787/mcp --header "Authorization: Bearer $BRUTAL_INGEST_KEY"
-claude mcp add --transport http brutal-triage http://localhost:8787/mcp --header "Authorization: Bearer $BRUTAL_READ_KEY"
-```
-
-## The TypeScript SDK
-
-`@brutal-ai/sdk` gives your agent the tool, records its recent tool calls per conversation, and
-attaches them to every report. Delivery never slows or fails the agent's turn.
 
 ```ts
 import { createBrutal } from "@brutal-ai/sdk";
 
 const brutal = createBrutal({
-  endpoint: process.env.BRUTAL_URL,
+  endpoint: "https://brutal.cldixon.dev",
   ingestKey: process.env.BRUTAL_INGEST_KEY,
-  context: () => ({ app_version: VERSION, environment: "production" }),
-  redact: (report) => report, // scrub, or return null to drop
 });
-
 const convo = brutal.conversation(conversationId);
 const searchParts = convo.wrap("search_parts", rawSearchParts); // recorded from now on
-
-// Anthropic Messages API: tools: [brutal.anthropicTool(), ...]
-// when the model calls report_feedback: tool_result content = await convo.handle(block.input)
-// Vercel AI SDK: tools: { report_feedback: brutal.aiSdkTool(conversationId), ... }
+// tools: [brutal.anthropicTool(), ...]; on a report_feedback call: await convo.handle(block.input)
 ```
 
 `examples/broken-tools.ts` runs a stand-in agent against deliberately broken tools:
 `BRUTAL_URL=… BRUTAL_INGEST_KEY=… bun run --cwd examples broken-tools`.
 
-## Deploy your own
+## How it's built
 
-Brutal runs on your own Cloudflare account, so reports never leave infrastructure you control.
-
-```sh
-bun create brutal-ai my-brutal
-```
-
-That makes a folder (its own git repo) holding your settings, `brutal.config.json` (Worker name,
-optional custom domain), and depending on `@brutal-ai/server`, the prebuilt Worker. It asks you
-to sign in to Cloudflare, asks for the settings, and deploys. The first deploy prints a setup
-code: open `/setup` on your instance and enter it for your keys. Updating is
-`bun update @brutal-ai/server && bun run deploy`; the database migrates itself.
-
-**Sign-in with Cloudflare Access.** With a custom domain, `bun run access` puts Access in front of
-`/dashboard` only: a one-time PIN login, a policy allowing your emails (from `access.emails` in
-`brutal.config.json`, or asked for), and an application with 24-hour sessions, made or corrected
-through `cf` (needs a Zero Trust organization on the account; the Free plan is enough). It writes
-the team and application to `brutal.config.json`; `bun run deploy` then has the Worker check
-Access's token on every dashboard request. The API, MCP and `/setup` keep using keys.
-
-## Releases
-
-Four packages are released together at `worker/package.json`'s version: `@brutal-ai/server`,
-`@brutal-ai/schema`, `@brutal-ai/sdk` and `create-brutal-ai`. To release, bump that version in a
-PR and merge it: `.github/workflows/release.yml` sees a version not yet on npm, runs the checks,
-publishes the four with npm trusted publishing (provenance, no token), and tags `v<version>` with
-a GitHub release. `bun run pack` builds and packs them into `dist/` without publishing. The first
-release was published by hand (`scripts/first-release.ts`), since npm only lets a package trust
-a workflow once it exists.
+- `worker/`: one Cloudflare Worker (Hono). Accounts (people, sign-in codes, sessions, projects,
+  keys) are in D1; each project's reports are in its own Durable Object with SQLite.
+- `app/`: the web app, Svelte 5 and Vite, served as the Worker's static assets.
+- `packages/schema`, `packages/sdk`: the report schema and the TypeScript SDK, published to npm.
 
 ## Develop
 
-`bun run dev` needs no settings. To deploy a test instance from source, `bun run --cwd worker
-setup` writes a gitignored `worker/brutal.config.json`, and `bun run deploy` uses it; CI uses
-`brutal.config.example.json` through `BRUTAL_CONFIG`. Real instances, the reference one
-included ([cldixon/cldixon-brutal](https://github.com/cldixon/cldixon-brutal)), deploy from
-their own folders made by `bun create brutal-ai`.
+```sh
+bun install
+cp worker/.dev.vars.sample worker/.dev.vars   # sign-in codes show on the page
+bun run build                                 # the web app, into app/dist
+bun run dev                                   # cf dev on http://localhost:8787
+bun run --cwd app dev                         # optional: Vite with hot reload, proxying the API
+```
 
-## Layout
-
-- `packages/schema`: the report schema (zod), the tool description and its JSON Schema.
-- `packages/sdk`: the TypeScript SDK (tool formats, recorder, redaction, delivery).
-- `worker`: the Worker (Hono): API, MCP, dashboard, setup, D1 migrations; `config.ts`
-  (`defineBrutal`, the Worker's cf config from an owner's settings) and `cli/brutal-server.ts`.
-- `packages/create-brutal-ai`: `bun create brutal-ai`.
-- `scripts/pack.ts`: builds the four publishable packages.
-- `examples`: a stand-in agent against broken tools.
-
-`bun run check` runs lint (Biome), typecheck and tests, as CI does.
+`bun run check` runs lint (Biome), typecheck (tsc, svelte-check) and tests, as CI does. Every
+green push to `main` deploys to brutal.cldixon.dev. Releasing the npm packages is bumping
+`worker/package.json`'s version in a PR (`.github/workflows/release.yml`).

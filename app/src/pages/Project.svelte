@@ -1,0 +1,157 @@
+<script lang="ts">
+import { IMPACTS, KINDS, STATUSES } from "@brutal-ai/schema/constants";
+import { api, type KeyInfo, type Project, type Report, when } from "../api";
+import { navigate, route } from "../router.svelte";
+
+let { projectId }: { projectId: string } = $props();
+
+let project = $state<Project | null>(null);
+let keys = $state<KeyInfo[]>([]);
+let reports = $state<Report[] | null>(null);
+let next = $state<string | null>(null);
+let error = $state("");
+let newKey = $state({ kind: "ingest" as KeyInfo["kind"], name: "" });
+let secret = $state<{ name: string; kind: string; value: string } | null>(null);
+
+const filters = $derived(new URLSearchParams(route.query));
+const origin = location.origin;
+
+async function loadProject() {
+  const r = await api<{ project: Project; keys: KeyInfo[] }>(`/projects/${projectId}`);
+  project = r.project;
+  keys = r.keys;
+}
+
+$effect(() => {
+  const query = filters.toString();
+  reports = null;
+  api<{ reports: Report[]; next: string | null }>(`/projects/${projectId}/reports?${query}`)
+    .then((r) => {
+      reports = r.reports;
+      next = r.next;
+    })
+    .catch((e) => (error = (e as Error).message));
+});
+
+$effect(() => {
+  loadProject().catch((e) => (error = (e as Error).message));
+});
+
+function filter(name: string, value: string) {
+  const q = new URLSearchParams(route.query);
+  if (value) q.set(name, value);
+  else q.delete(name);
+  q.delete("before");
+  navigate(`/projects/${projectId}${q.size ? `?${q}` : ""}`, true);
+}
+
+async function createKey(event: SubmitEvent) {
+  event.preventDefault();
+  error = "";
+  try {
+    const made = await api<{ key: KeyInfo; secret: string }>(`/projects/${projectId}/keys`, {
+      method: "POST",
+      body: newKey,
+    });
+    secret = { name: made.key.name, kind: made.key.kind, value: made.secret };
+    newKey.name = "";
+    await loadProject();
+  } catch (e) {
+    error = (e as Error).message;
+  }
+}
+
+async function revoke(key: KeyInfo) {
+  if (!confirm(`Revoke "${key.name}"? Anything using it stops working.`)) return;
+  await api(`/projects/${projectId}/keys/${key.id}`, { method: "DELETE" });
+  await loadProject();
+}
+
+const olderHref = $derived.by(() => {
+  if (!next) return null;
+  const q = new URLSearchParams(route.query);
+  q.set("before", next);
+  return `/projects/${projectId}?${q}`;
+});
+</script>
+
+{#if project}
+  <h1>{project.name}</h1>
+
+  <h2>Reports</h2>
+  <div class="row">
+    <select value={filters.get("kind") ?? ""} onchange={(e) => filter("kind", e.currentTarget.value)}>
+      <option value="">any kind</option>
+      {#each KINDS as k (k)}<option>{k}</option>{/each}
+    </select>
+    <select value={filters.get("status") ?? ""} onchange={(e) => filter("status", e.currentTarget.value)}>
+      <option value="">any status</option>
+      {#each STATUSES as s (s)}<option>{s}</option>{/each}
+    </select>
+    <select value={filters.get("impact") ?? ""} onchange={(e) => filter("impact", e.currentTarget.value)}>
+      <option value="">any impact</option>
+      {#each IMPACTS as i (i)}<option>{i}</option>{/each}
+    </select>
+  </div>
+  {#if reports === null}
+    <p class="muted">Loading…</p>
+  {:else if reports.length === 0}
+    <p class="muted">No reports{filters.size ? " match these filters" : " yet. Connect an agent below"}.</p>
+  {:else}
+    <table>
+      <thead><tr><th>When</th><th>Kind</th><th>Title</th><th>Tool</th><th>Impact</th><th>Status</th></tr></thead>
+      <tbody>
+        {#each reports as r (r.id)}
+          <tr>
+            <td class="muted">{when(r.created_at)}</td>
+            <td>{r.kind}</td>
+            <td><a href={`/projects/${projectId}/reports/${r.id}`}>{r.title}</a></td>
+            <td>{r.tool_name ?? ""}</td>
+            <td>{r.impact ?? ""}</td>
+            <td>{r.status}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+    {#if olderHref}<p><a href={olderHref}>Older</a></p>{/if}
+  {/if}
+
+  <h2>Keys</h2>
+  <p class="muted">An ingest key only files reports: give it to your agent. A read key also reads and triages: for you, scripts and coding agents.</p>
+  {#if secret}
+    <div class="secret">
+      <p>Your new {secret.kind} key, <strong>{secret.name}</strong>. Copy it now: it isn't shown again.</p>
+      <code class="block">{secret.value}</code>
+      <button class="link" onclick={() => (secret = null)}>Done</button>
+    </div>
+  {/if}
+  <form class="row" onsubmit={createKey}>
+    <select bind:value={newKey.kind}>
+      <option value="ingest">ingest</option>
+      <option value="read">read</option>
+    </select>
+    <input bind:value={newKey.name} placeholder="Key name, e.g. my agent" maxlength="80" required />
+    <button class="primary">New key</button>
+  </form>
+  {#if keys.length}
+    <table>
+      <thead><tr><th>Name</th><th>Kind</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        {#each keys as k (k.id)}
+          <tr>
+            <td>{k.name}</td><td>{k.kind}</td><td class="muted">{when(k.created_at)}</td>
+            <td><button class="link" onclick={() => revoke(k)}>Revoke</button></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+
+  <h2>Connect an agent</h2>
+  <p>Claude Code (or any MCP client): an ingest key gives the agent <code>report_feedback</code>; a read key gives a coding agent the triage tools.</p>
+  <code class="block">claude mcp add --transport http brutal {origin}/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
+  <p>Any language, over HTTP:</p>
+  <code class="block">curl -X POST {origin}/v1/reports -H "Authorization: Bearer &lt;ingest key&gt;" -H "content-type: application/json" -d '{`{"kind":"friction","title":"…","summary":"…","tool_name":"…"}`}'</code>
+  <p>TypeScript: <code>@brutal-ai/sdk</code> with <code>endpoint: "{origin}"</code> records your agent's recent tool calls and attaches them to every report.</p>
+{/if}
+{#if error}<p class="error">{error}</p>{/if}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { IMPACTS, KINDS, STATUSES, type Status } from "./constants";
 
 /**
  * The report schema and the canonical tool definition. Every surface (HTTP API, MCP, a future
@@ -6,21 +7,7 @@ import { z } from "zod";
  * `toolDefinition()` and POST to the API.
  */
 
-export const KINDS = [
-  "bug",
-  "friction",
-  "missing_capability",
-  "confusing_output",
-  "latency",
-  "eval_candidate",
-  "other",
-] as const;
-export const IMPACTS = ["blocked", "worked_around", "minor"] as const;
-export const STATUSES = ["new", "triaged", "linked", "fixed", "verified", "wont_fix"] as const;
-
-export type Kind = (typeof KINDS)[number];
-export type Impact = (typeof IMPACTS)[number];
-export type Status = (typeof STATUSES)[number];
+export * from "./constants";
 
 /** What the agent supplies: its judgment. Kept small so models fill it reliably. */
 export const agentInput = {
