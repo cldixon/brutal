@@ -23,7 +23,7 @@ Read it before architectural decisions. Where this repo deliberately differs, it
 
 ## Deployment
 
-The reference deployment is the Worker `brutal` on `https://brutal.cl-dixon.workers.dev` (D1
+The reference deployment is the Worker `brutal` on `https://brutal.cldixon.dev` (D1
 `brutal`), deployed with `bun run deploy`. It is claimed. Do not create or delete Cloudflare
 resources without asking.
 
