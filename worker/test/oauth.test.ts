@@ -290,3 +290,20 @@ describe("connecting an app over OAuth", () => {
     }
   });
 });
+
+test("the app's host answers the MCP paths from its static files, without an error", async () => {
+  // Cloudflare's static assets answer with immutable headers.
+  const ASSETS = {
+    fetch: async () => {
+      const res = new Response("not found", { status: 404 });
+      res.headers.set = () => {
+        throw new TypeError("Can't modify immutable headers.");
+      };
+      return res;
+    },
+  };
+  const h = harness({ ASSETS });
+  const r = await req(h, `${ORIGIN}/mcp`, { method: "POST" });
+  expect(r.status).toBe(404);
+  expect(r.headers.get("x-content-type-options")).toBe("nosniff");
+});
