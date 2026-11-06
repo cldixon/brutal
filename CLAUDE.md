@@ -31,8 +31,8 @@ Read it before architectural decisions. Where this repo deliberately differs, it
   `@brutal-ai/schema`, `@brutal-ai/sdk` and `create-brutal-ai` at `worker/package.json`'s
   version. Releasing is bumping that version in a PR: on push to `main`, `release.yml` publishes
   any version not yet on npm (trusted publishing, so npm is used there only) and tags it.
-  `scripts/stage-npm.ts` was the one-time bootstrap (0.0.0-stage placeholders, since npm only
-  trusts a workflow for a package that exists).
+  `scripts/first-release.ts` is the one-time bootstrap: npm only trusts a workflow for a
+  package that exists and refuses placeholder versions, so 0.1.0 is published by hand.
 
 ## Deployment
 

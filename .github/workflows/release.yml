@@ -81,3 +81,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: gh release create "v$VERSION" dist/*.tgz --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+
+      # A version published by hand (the first, scripts/first-release.ts) still gets its tag and
+      # GitHub release, without tarballs, the first time this runs.
+      - name: Tag a version published elsewhere
+        if: steps.version.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then exit 0; fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes

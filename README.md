@@ -92,7 +92,9 @@ Four packages are released together at `worker/package.json`'s version: `@brutal
 `@brutal-ai/schema`, `@brutal-ai/sdk` and `create-brutal-ai`. To release, bump that version in a
 PR and merge it: `.github/workflows/release.yml` sees a version not yet on npm, runs the checks,
 publishes the four with npm trusted publishing (provenance, no token), and tags `v<version>` with
-a GitHub release. `bun run pack` builds and packs them into `dist/` without publishing.
+a GitHub release. `bun run pack` builds and packs them into `dist/` without publishing. The first
+release was published by hand (`scripts/first-release.ts`), since npm only lets a package trust
+a workflow once it exists.
 
 ## Develop
 
