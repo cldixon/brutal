@@ -5,10 +5,12 @@
  * `stage` (igloo did the same). Then, on npmjs.com, each package's Settings gets the trusted
  * publisher cldixon/brutal, workflow release.yml, and release.yml publishes every real version.
  *
- *   bun scripts/stage-npm.ts            publish the placeholders not yet on npm
- *   bun scripts/stage-npm.ts --dry-run  show what would be published
+ *   bun scripts/stage-npm.ts                publish the placeholders not yet on npm
+ *   bun scripts/stage-npm.ts --dry-run      show what would be published
+ *   bun scripts/stage-npm.ts --otp 123456   pass a one-time password (it expires in ~30 s)
  *
- * Needs npm credentials that may create packages (npm login, or a token in .npmrc).
+ * Needs npm credentials that may create packages (npm login). npm runs attached to this
+ * terminal, so it can ask for two-factor authentication (open the URL it prints, or press ENTER).
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,6 +20,8 @@ import { $ } from "bun";
 const PACKAGES = ["@brutal-ai/schema", "@brutal-ai/sdk", "@brutal-ai/server", "create-brutal-ai"];
 const VERSION = "0.0.0-stage";
 const dryRun = process.argv.includes("--dry-run");
+const otpAt = process.argv.indexOf("--otp");
+const otp = otpAt === -1 ? undefined : process.argv[otpAt + 1];
 
 for (const name of PACKAGES) {
   const existing = await $`npm view ${name} version`.nothrow().quiet();
