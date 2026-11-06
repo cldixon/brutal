@@ -36,11 +36,11 @@ Read it before architectural decisions. Where this repo deliberately differs, it
 
 ## Deployment
 
-The reference deployment is the Worker `brutal` on `https://brutal.cldixon.dev` (D1
-`brutal`). Until it has a deploy folder of its own (as igloo's `cldixon-igloo`), it deploys from
-this repo with `bun run deploy`, from `worker/brutal.config.json` (gitignored:
-`{ "worker": "brutal", "domain": "brutal.cldixon.dev" }`). It is claimed. Do not create or delete Cloudflare
-resources without asking.
+This repo deploys nothing. The reference instance, the Worker `brutal` on
+`https://brutal.cldixon.dev` (D1 `brutal`, claimed), deploys from its own repo,
+`cldixon/cldixon-brutal`, made with `bun create brutal-ai`: it holds the settings and depends on
+the published `@brutal-ai/server`, so a Brutal change reaches it as a release and then a
+`bun update` there. Do not create or delete Cloudflare resources without asking.
 
 ## Tooling
 
