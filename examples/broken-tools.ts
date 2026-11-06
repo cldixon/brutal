@@ -1,4 +1,4 @@
-import { createBrutal } from "@brutal/sdk";
+import { createBrutal } from "@brutal-ai/sdk";
 
 /**
  * A stand-in agent (no model) working against deliberately broken tools, to see the SDK file a

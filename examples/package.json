@@ -1,5 +1,5 @@
 {
-  "name": "@brutal/examples",
+  "name": "@brutal-ai/examples",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,7 +7,7 @@
     "broken-tools": "bun broken-tools.ts"
   },
   "dependencies": {
-    "@brutal/sdk": "workspace:*"
+    "@brutal-ai/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",

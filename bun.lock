@@ -10,17 +10,24 @@
       },
     },
     "examples": {
-      "name": "@brutal/examples",
+      "name": "@brutal-ai/examples",
       "dependencies": {
-        "@brutal/sdk": "workspace:*",
+        "@brutal-ai/sdk": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.0",
         "typescript": "^5.9.3",
       },
     },
+    "packages/create-brutal-ai": {
+      "name": "create-brutal-ai",
+      "devDependencies": {
+        "@types/bun": "^1.3.0",
+        "typescript": "^5.9.3",
+      },
+    },
     "packages/schema": {
-      "name": "@brutal/schema",
+      "name": "@brutal-ai/schema",
       "dependencies": {
         "zod": "^4.1.0",
       },
@@ -30,9 +37,9 @@
       },
     },
     "packages/sdk": {
-      "name": "@brutal/sdk",
+      "name": "@brutal-ai/sdk",
       "dependencies": {
-        "@brutal/schema": "workspace:*",
+        "@brutal-ai/schema": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.0",
@@ -40,9 +47,10 @@
       },
     },
     "worker": {
-      "name": "@brutal/worker",
+      "name": "@brutal-ai/server",
+      "version": "0.1.0",
       "dependencies": {
-        "@brutal/schema": "workspace:*",
+        "@brutal-ai/schema": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.20.0",
         "hono": "^4.10.0",
         "zod": "^4.1.0",
@@ -78,13 +86,13 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.6.5", "", { "os": "win32", "cpu": "x64" }, "sha512-07LaCeN9vvmbAAMOMsUjMfL5UbsCDkvVeyMJIgwNRc0xYqhizBGkjVzx05LYEwCXl2AiHcdzqVPR4IOYAsI1QQ=="],
 
-    "@brutal/examples": ["@brutal/examples@workspace:examples"],
+    "@brutal-ai/examples": ["@brutal-ai/examples@workspace:examples"],
 
-    "@brutal/schema": ["@brutal/schema@workspace:packages/schema"],
+    "@brutal-ai/schema": ["@brutal-ai/schema@workspace:packages/schema"],
 
-    "@brutal/sdk": ["@brutal/sdk@workspace:packages/sdk"],
+    "@brutal-ai/sdk": ["@brutal-ai/sdk@workspace:packages/sdk"],
 
-    "@brutal/worker": ["@brutal/worker@workspace:worker"],
+    "@brutal-ai/server": ["@brutal-ai/server@workspace:worker"],
 
     "@cloudflare/build-output-utils": ["@cloudflare/build-output-utils@0.9.10", "", { "dependencies": { "@cloudflare/config": "0.30.2" } }, "sha512-9F6RSV0FJnF0zQLIoMVgxc0ub57FrZBGKZ8oUQHyVAbbjodlcIHk0BF5fd3B89N/Y4cE+FSqzWfpq3RzFy3tjA=="],
 
@@ -269,6 +277,8 @@
     "cookie-signature": ["cookie-signature@1.2.2", "", {}, "sha512-D76uU73ulSXrD1UXF4KE2TMxVVwhsnCgfAyTg9k8P6KGZjlXKrOLe4dJQKI3Bxi5wjesZoFXJWElNWBjPZMbhg=="],
 
     "cors": ["cors@2.8.6", "", { "dependencies": { "object-assign": "^4", "vary": "^1" } }, "sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw=="],
+
+    "create-brutal-ai": ["create-brutal-ai@workspace:packages/create-brutal-ai"],
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "^3.1.0", "shebang-command": "^2.0.0", "which": "^2.0.1" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
 

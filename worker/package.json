@@ -1,16 +1,17 @@
 {
-  "name": "@brutal/worker",
+  "name": "@brutal-ai/server",
   "private": true,
   "type": "module",
   "scripts": {
+    "setup": "bun cli/brutal-server.ts setup",
     "dev": "cf dev",
-    "deploy": "cf deploy",
+    "deploy": "bun cli/brutal-server.ts deploy",
     "deploy:dry": "cf deploy --dry-run",
     "types": "cf workers types",
     "typecheck": "cf workers types && tsc -p ."
   },
   "dependencies": {
-    "@brutal/schema": "workspace:*",
+    "@brutal-ai/schema": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.20.0",
     "hono": "^4.10.0",
     "zod": "^4.1.0"
@@ -20,5 +21,7 @@
     "cf": "1.0.0-beta.28",
     "typescript": "^5.9.3",
     "wrangler": "^4.149.0"
-  }
+  },
+  "version": "0.1.0",
+  "description": "Brutal: feedback for agents, deployed to your own Cloudflare account"
 }

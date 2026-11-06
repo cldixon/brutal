@@ -54,7 +54,7 @@ test("a report carries the recent tool calls without the agent naming them", asy
     conversation_id: "conv_1",
     agent_name: "otto",
     app_version: "1.4.0",
-    sdk: "@brutal/sdk",
+    sdk: "@brutal-ai/sdk",
   });
   expect(context.recent_tool_calls.map((c) => c.status)).toEqual(["ok", "error"]);
   expect(context.recent_tool_calls[1].error).toBe("year must be YYYY");

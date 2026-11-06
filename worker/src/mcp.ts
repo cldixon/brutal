@@ -6,7 +6,7 @@ import {
   TOOL_ACK,
   TOOL_DESCRIPTION,
   TOOL_NAME,
-} from "@brutal/schema";
+} from "@brutal-ai/schema";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";

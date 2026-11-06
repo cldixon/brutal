@@ -1,5 +1,5 @@
 {
-  "name": "@brutal/schema",
+  "name": "@brutal-ai/schema",
   "private": true,
   "type": "module",
   "exports": {

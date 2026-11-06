@@ -48,11 +48,11 @@ claude mcp add --transport http brutal-triage http://localhost:8787/mcp --header
 
 ## The TypeScript SDK
 
-`@brutal/sdk` gives your agent the tool, records its recent tool calls per conversation, and
+`@brutal-ai/sdk` gives your agent the tool, records its recent tool calls per conversation, and
 attaches them to every report. Delivery never slows or fails the agent's turn.
 
 ```ts
-import { createBrutal } from "@brutal/sdk";
+import { createBrutal } from "@brutal-ai/sdk";
 
 const brutal = createBrutal({
   endpoint: process.env.BRUTAL_URL,
@@ -72,21 +72,40 @@ const searchParts = convo.wrap("search_parts", rawSearchParts); // recorded from
 `examples/broken-tools.ts` runs a stand-in agent against deliberately broken tools:
 `BRUTAL_URL=… BRUTAL_INGEST_KEY=… bun run --cwd examples broken-tools`.
 
-## Deploy
+## Deploy your own
+
+Brutal runs on your own Cloudflare account, so reports never leave infrastructure you control.
 
 ```sh
-bun run deploy   # cf deploy: creates the D1 database on first deploy
+bun create brutal-ai my-brutal
 ```
 
-Then open `/setup` and enter the setup code. To skip reading the logs, set your own first:
-`bunx cf workers secret put SETUP_CODE` (from `worker/`). The database migrates itself on first
-use; nobody runs a migration.
+That makes a folder (its own git repo) holding your settings, `brutal.config.json` (Worker name,
+optional custom domain), and depending on `@brutal-ai/server`, the prebuilt Worker. It asks you
+to sign in to Cloudflare, asks for the settings, and deploys. The first deploy prints a setup
+code: open `/setup` on your instance and enter it for your keys. Updating is
+`bun update @brutal-ai/server && bun run deploy`; the database migrates itself.
+
+## Releases
+
+Four packages are released together from a `v*` tag matching `worker/package.json`'s version
+(`.github/workflows/release.yml`): `@brutal-ai/server`, `@brutal-ai/schema`, `@brutal-ai/sdk`
+and `create-brutal-ai`. `bun run pack` builds and packs them into `dist/` without publishing.
+
+## Develop
+
+`worker/brutal.config.json` (gitignored) holds the settings of the instance deployed from this
+repo; `bun run --cwd worker setup` writes it, and `bun run deploy` deploys with it. CI uses
+`brutal.config.example.json` through `BRUTAL_CONFIG`. `bun run dev` needs no settings.
 
 ## Layout
 
 - `packages/schema`: the report schema (zod), the tool description and its JSON Schema.
 - `packages/sdk`: the TypeScript SDK (tool formats, recorder, redaction, delivery).
-- `worker`: the Worker (Hono): API, MCP, dashboard, setup, D1 migrations.
+- `worker`: the Worker (Hono): API, MCP, dashboard, setup, D1 migrations; `config.ts`
+  (`defineBrutal`, the Worker's cf config from an owner's settings) and `cli/brutal-server.ts`.
+- `packages/create-brutal-ai`: `bun create brutal-ai`.
+- `scripts/pack.ts`: builds the four publishable packages.
 - `examples`: a stand-in agent against broken tools.
 
 `bun run check` runs lint (Biome), typecheck and tests, as CI does.

@@ -1,4 +1,4 @@
-import { IMPACTS, KINDS, type Report, STATUSES } from "@brutal/schema";
+import { IMPACTS, KINDS, type Report, STATUSES } from "@brutal-ai/schema";
 import { html, raw } from "hono/html";
 
 /** The bare dashboard: server-rendered, no script. Everything from a report is escaped. */

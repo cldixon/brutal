@@ -1,5 +1,5 @@
 {
-  "name": "@brutal/sdk",
+  "name": "@brutal-ai/sdk",
   "private": true,
   "type": "module",
   "exports": {
@@ -9,7 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@brutal/schema": "workspace:*"
+    "@brutal-ai/schema": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",
