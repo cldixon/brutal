@@ -58,7 +58,8 @@ jobs:
       - if: steps.version.outputs.released == 'false'
         run: bun run pack
 
-      # Schema before the SDK that depends on it. A package already at this version (a re-run
+      # Schema before the SDK that depends on it. The ./ matters: npm reads dist/x.tgz as GitHub
+      # shorthand (owner/repo) and tries to fetch it with git. A package already at this version (a re-run
       # after a partial failure) is skipped, so the step can be repeated.
       - name: Publish to npm
         if: steps.version.outputs.released == 'false'
@@ -71,7 +72,7 @@ jobs:
             if [ -n "$(npm view "$name@$VERSION" version 2>/dev/null)" ]; then
               echo "$name@$VERSION is already published"
             else
-              npm publish "dist/$file-$VERSION.tgz" --access public
+              npm publish "./dist/$file-$VERSION.tgz" --access public
             fi
           done
 
