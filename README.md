@@ -18,6 +18,12 @@ a project for each agent or tool you're testing, and give the agent a key.
 | `GET /v1/schema/tool`                            | the canonical tool definition (name, description, JSON Schema)                                                                    | none   |
 | `@brutal-ai/sdk`                                 | TypeScript: the tool in Anthropic and Vercel AI SDK shapes, plus a recorder that attaches recent tool calls                       | ingest |
 
+**Claude (claude.ai, Desktop, mobile):** Settings → Connectors → Add custom connector, with
+`https://thatsbrutal.fyi/mcp`. You sign in, pick a project and what Claude may do (report
+feedback, or read and triage), and the project page lists the connection with Disconnect.
+
+**Claude Code, scripts and the SDK** use a project's key:
+
 ```sh
 claude mcp add --transport http brutal https://thatsbrutal.fyi/mcp --header "Authorization: Bearer <key>"
 ```

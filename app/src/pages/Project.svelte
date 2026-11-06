@@ -12,6 +12,7 @@ let next = $state<string | null>(null);
 let error = $state("");
 let newKey = $state({ kind: "ingest" as KeyInfo["kind"], name: "" });
 let secret = $state<{ name: string; kind: string; value: string } | null>(null);
+let connections = $state<{ id: string; client: string; access: string; created_at: string }[]>([]);
 
 const filters = $derived(new URLSearchParams(route.query));
 const origin = location.origin;
@@ -20,6 +21,15 @@ async function loadProject() {
   const r = await api<{ project: Project; keys: KeyInfo[] }>(`/projects/${projectId}`);
   project = r.project;
   keys = r.keys;
+  connections = (
+    await api<{ connections: typeof connections }>(`/projects/${projectId}/connections`)
+  ).connections;
+}
+
+async function disconnect(c: (typeof connections)[number]) {
+  if (!confirm(`Disconnect ${c.client}? It loses access to this project.`)) return;
+  await api(`/projects/${projectId}/connections/${c.id}`, { method: "DELETE" });
+  await loadProject();
 }
 
 $effect(() => {
@@ -147,8 +157,29 @@ const olderHref = $derived.by(() => {
     </table>
   {/if}
 
+  <h2>Connected apps</h2>
+  {#if connections.length === 0}
+    <p class="muted">None yet. Connect Claude (below) and it shows up here.</p>
+  {:else}
+    <table>
+      <thead><tr><th>App</th><th>May</th><th>Connected</th><th></th></tr></thead>
+      <tbody>
+        {#each connections as c (c.id)}
+          <tr>
+            <td>{c.client}</td>
+            <td>{c.access === "triage" ? "read and triage" : "report feedback"}</td>
+            <td class="muted">{when(c.created_at)}</td>
+            <td><button class="link" onclick={() => disconnect(c)}>Disconnect</button></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+
   <h2>Connect an agent</h2>
-  <p>Claude Code (or any MCP client): an ingest key gives the agent <code>report_feedback</code>; a read key gives a coding agent the triage tools.</p>
+  <p>Claude (claude.ai, Desktop, mobile): Settings → Connectors → Add custom connector, with this URL. You'll sign in, then pick this project and what it may do.</p>
+  <code class="block">{origin}/mcp</code>
+  <p>Claude Code (or any MCP client) with a key: an ingest key gives the agent <code>report_feedback</code>; a read key gives a coding agent the triage tools.</p>
   <code class="block">claude mcp add --transport http brutal {origin}/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
   <p>Any language, over HTTP:</p>
   <code class="block">curl -X POST {origin}/v1/reports -H "Authorization: Bearer &lt;ingest key&gt;" -H "content-type: application/json" -d '{`{"kind":"friction","title":"…","summary":"…","tool_name":"…"}`}'</code>

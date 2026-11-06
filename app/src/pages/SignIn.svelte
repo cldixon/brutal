@@ -37,7 +37,10 @@ async function verify(event: SubmitEvent) {
     await api("/sign-in/verify", { method: "POST", body: { email, code } });
     await onSignedIn();
     const next = new URLSearchParams(route.query).get("next");
-    navigate(next?.startsWith("/") && !next.startsWith("//") ? next : "/projects", true);
+    const safe = next?.startsWith("/") && !next.startsWith("//") ? next : "/projects";
+    // Connecting an app: /authorize is the server's page, not this app's, so load it.
+    if (safe.startsWith("/authorize")) location.assign(safe);
+    else navigate(safe, true);
   } catch (e) {
     error = (e as Error).message;
   } finally {

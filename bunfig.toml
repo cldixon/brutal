@@ -2,3 +2,7 @@
 # Each workspace gets its own node_modules: cf looks for its delegate (wrangler)
 # next to the package that declares it, not hoisted to the root.
 linker = "isolated"
+
+[test]
+# Stubs workerd's cloudflare:workers for the Worker's tests (worker/test/preload.ts).
+preload = ["./worker/test/preload.ts"]

@@ -15,8 +15,9 @@ export default defineConfig(({ mode }) => {
     worker: {
       name: app.name,
       compatibilityDate: COMPATIBILITY_DATE,
-      // The MCP SDK's transport needs it.
-      compatibilityFlags: ["nodejs_compat"],
+      // nodejs_compat: the MCP SDK's transport. global_fetch_strictly_public: the OAuth library
+      // fetches client metadata documents only under it (as Tempra).
+      compatibilityFlags: ["nodejs_compat", "global_fetch_strictly_public"],
       entrypoint: "./src/index.ts",
       observability: { enabled: true },
       domains: local ? [] : [app.host],
@@ -27,7 +28,19 @@ export default defineConfig(({ mode }) => {
       // paths the Worker answers: `/` (the landing page or the app) and the site's files.
       assets: {
         notFoundHandling: "single-page-application",
-        runWorkerFirst: ["/", "/_astro/*", "/api/*", "/v1/*", "/mcp", "/healthz"],
+        runWorkerFirst: [
+          "/",
+          "/_astro/*",
+          "/api/*",
+          "/v1/*",
+          "/mcp",
+          "/healthz",
+          // OAuth for connecting apps (worker.ts, oauth.ts).
+          "/authorize",
+          "/token",
+          "/register",
+          "/.well-known/*",
+        ],
       },
       exports: {
         Project: exports.durableObject({ storage: "sqlite" }),
@@ -37,6 +50,8 @@ export default defineConfig(({ mode }) => {
         // Accounts: people, sign-in codes, sessions, projects, keys, invites. Migrates itself.
         DB: bindings.d1({ name: "brutal-accounts" }),
         PROJECT: bindings.durableObject({ worker: app.name, exportName: "Project" }),
+        // OAuth clients and grants for connected apps (Cloudflare's OAuth provider, worker.ts).
+        OAUTH_KV: bindings.kv(),
         ASSETS: bindings.assets(),
         APP_ORIGIN: bindings.text(local ? "http://localhost:8787" : `https://${app.host}`),
         // Invite-only in production, as Tempra: accounts, invited emails and OPERATOR_EMAIL (a

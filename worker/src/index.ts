@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
-import { type Bindings, createApp, mailerFor } from "./app";
+import { type Bindings, mailerFor } from "./app";
 import { operatorOps } from "./operator";
+import { createWorker } from "./worker";
 
 export { Project } from "./project";
 
@@ -31,4 +32,4 @@ export class Operator extends WorkerEntrypoint<Bindings> {
   }
 }
 
-export default createApp();
+export default createWorker();

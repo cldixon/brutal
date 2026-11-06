@@ -49,11 +49,21 @@ The account model is Tempra's (cldixon/tempra), kept small:
   the code instead. The operator admits people from the portal (or `bun run admin`).
 - **Keys** belong to a project: ingest (files reports) and read (also reads and triages), stored
   as hashes, made and revoked in the web app.
+- **Connected apps over OAuth** (claude.ai's connectors and any MCP client that speaks OAuth),
+  after Tempra's: `worker/src/worker.ts` puts Cloudflare's `@cloudflare/workers-oauth-provider` in
+  front of the app (discovery, `/register`, `/token`, client metadata documents; clients and
+  grants in KV `OAUTH_KV`), guarding `/mcp`: an access token's grant (`worker/src/oauth.ts`) names
+  one project and a level, `report` (an ingest key's tools) or `triage` (a read key's), checked
+  against the project's owner on every call; a project's keys still work there
+  (`resolveExternalToken`). `/authorize` is the consent, server-rendered with no script
+  (`app/public/consent.css`): signed out it goes to `/sign-in?next=…` and back; it picks or
+  makes the project and the level. The project page lists connections with Disconnect
+  (`/api/projects/:p/connections`, the provider's `listUserGrants`/`revokeGrant`).
 
 Routes: `/v1/*` and `/mcp` take a project's key; `/api/*` is the web app's API with the session
 cookie; `/` is the landing page signed out and the app signed in; everything else is the Svelte
 app's static files (SPA fallback; the Worker runs first only for `/`, `/_astro/*`, `/api/*`,
-`/v1/*`, `/mcp`, `/healthz`).
+`/v1/*`, `/mcp`, `/healthz`, and OAuth's `/authorize`, `/token`, `/register`, `/.well-known/*`).
 
 Durable Object RPC can't carry objects without a prototype (Hono's `c.req.query()`): copy them
 (`{ ...c.req.query() }`). The test harness refuses such arguments as RPC does.
@@ -79,8 +89,11 @@ app, so zod stays out of the bundle.
 - Biome for lint and format (`bun run format`); like `.svelte`, `.astro` files get the unused
   rules off. `bun run build` (the app and the site) then `bun run check` before every commit.
 - Tests run under `bun test`: D1 is `worker/test/d1.ts` over bun:sqlite; `worker/test/harness.ts`
-  runs the app in process with one bun:sqlite `ReportStore` per project and mail captured; MCP
-  tests use the SDK's own client; `admin/test` signs Access tokens with a test RSA key.
+  runs the whole Worker (the OAuth provider in front of the app, KV in memory, `worker/test/kv.ts`)
+  in process with one bun:sqlite `ReportStore` per project and mail captured; `cloudflare:workers`
+  is stubbed by `worker/test/preload.ts` (bunfig.toml); `worker/test/oauth.test.ts` drives the
+  connector flow as claude.ai does (register, consent, PKCE token, MCP, revoke); MCP tests use
+  the SDK's own client; `admin/test` signs Access tokens with a test RSA key.
 
 ## Deployment and releases
 
