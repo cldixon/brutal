@@ -1,7 +1,8 @@
 import { Database } from "bun:sqlite";
-import { createApp } from "../src/app";
 import { type ProjectReports, ReportStore, type Sql } from "../src/reports";
+import { createWorker } from "../src/worker";
 import { bunD1 } from "./d1";
+import { memoryKV } from "./kv";
 
 /** A SQLite handle over bun:sqlite, standing in for a Durable Object's storage. */
 export function bunSql(db = new Database(":memory:")): Sql {
@@ -17,7 +18,7 @@ export function bunSql(db = new Database(":memory:")): Sql {
 export function harness(env: Record<string, unknown> = {}) {
   const stores = new Map<string, ReportStore>();
   const mail: { to: string; subject: string; text: string }[] = [];
-  const app = createApp({
+  const worker = createWorker({
     reports(_env, projectId): ProjectReports {
       let store = stores.get(projectId);
       if (!store) {
@@ -45,7 +46,21 @@ export function harness(env: Record<string, unknown> = {}) {
     },
   });
   // Open sign-up unless a test says otherwise; production is invite-only.
-  const bindings = { DB: bunD1(), SIGNUP: "open", ...env };
+  const bindings = { DB: bunD1(), OAUTH_KV: memoryKV(), SIGNUP: "open", ...env };
+  const ctx = {
+    waitUntil() {},
+    passThroughOnException() {},
+    props: {},
+  } as unknown as ExecutionContext;
+  /** The whole Worker, OAuth provider included, with Hono's app.request shape. */
+  const app = {
+    request: (input: string | Request, init?: RequestInit, envOverride?: unknown) =>
+      worker.fetch(
+        input instanceof Request ? input : new Request(input, init),
+        (envOverride ?? bindings) as never,
+        ctx,
+      ),
+  };
   const origin = "https://brutal.test";
 
   /** A request as the web app makes it: same origin, JSON, the session cookie if given. */

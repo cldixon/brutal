@@ -1,0 +1,67 @@
+/* The OAuth consent page (worker/src/oauth.ts): the app's look, without script. */
+:root {
+  color: #111;
+  background: #fff;
+  font:
+    15px / 1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+.brand {
+  font-weight: 700;
+}
+h1 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.5rem;
+}
+.muted {
+  color: #666;
+}
+.error {
+  color: #b00;
+}
+fieldset {
+  border: 1px solid #ddd;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+}
+legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+label {
+  display: block;
+  margin: 0.35rem 0;
+}
+input,
+button {
+  font: inherit;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #111;
+  border-radius: 0;
+  background: #fff;
+  color: #111;
+}
+input[type="radio"] {
+  padding: 0;
+}
+button {
+  cursor: pointer;
+}
+button.primary {
+  background: #111;
+  color: #fff;
+}
+.row {
+  display: flex;
+  gap: 0.5rem;
+}

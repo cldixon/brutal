@@ -1,4 +1,5 @@
 import { ReportInput, ReportUpdate, toolDefinition } from "@brutal-ai/schema";
+import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
@@ -29,7 +30,7 @@ import {
   type User,
   useCode,
 } from "./accounts";
-import { handleMcp } from "./mcp";
+import { type GrantMetadata, registerConsentRoutes } from "./oauth";
 import type { ProjectReports } from "./reports";
 
 export interface Bindings {
@@ -55,6 +56,10 @@ export interface Bindings {
   APP_ORIGIN?: string;
   /** The landing page's Worker (site/): `/` for people signed out, and its own files. */
   SITE?: Fetcher;
+  /** OAuth clients and grants (worker.ts, oauth.ts). */
+  OAUTH_KV?: KVNamespace;
+  /** Put here by the OAuth provider for the consent page and the connected apps list. */
+  OAUTH_PROVIDER?: OAuthHelpers;
 }
 
 export interface MailBinding {
@@ -85,7 +90,7 @@ export function mailerFor(env: Bindings): Mailer | null {
   };
 }
 
-const defaultDeps: Deps = {
+export const defaultDeps: Deps = {
   reports(env, projectId) {
     if (!env.PROJECT) throw new Error("The PROJECT binding is missing.");
     return env.PROJECT.get(env.PROJECT.idFromName(projectId)) as unknown as ProjectReports;
@@ -170,8 +175,6 @@ export function createApp(overrides: Partial<Deps> = {}) {
     const report = await c.var.reports.update(c.req.param("id"), parsed.data);
     return report ? c.json(report) : problem("Not found.", 404);
   });
-
-  app.all("/mcp", keyed("ingest", "read"), (c) => handleMcp(c.req.raw, c.var.reports, c.var.key));
 
   // --- People: the web app's API, with a session cookie --------------------------------------
 
@@ -325,7 +328,43 @@ export function createApp(overrides: Partial<Deps> = {}) {
     return report ? c.json(report) : problem("Not found.", 404);
   });
 
+  // Apps connected to a project over OAuth (claude.ai's connectors and the like), and revoking them.
+  app.get("/api/projects/:project/connections", session, owned, async (c) => {
+    const oauth = c.env.OAUTH_PROVIDER;
+    if (!oauth) return c.json({ connections: [] });
+    const { items } = await oauth.listUserGrants(c.var.user.id);
+    const connections = items
+      .filter((g) => (g.metadata as GrantMetadata | null)?.project === c.var.project.id)
+      .map((g) => {
+        const m = g.metadata as GrantMetadata;
+        return {
+          id: g.id,
+          client: m.client,
+          access: m.access,
+          created_at: new Date(g.createdAt * 1000).toISOString(),
+        };
+      });
+    return c.json({ connections });
+  });
+
+  app.delete("/api/projects/:project/connections/:grant", session, owned, async (c) => {
+    const oauth = c.env.OAUTH_PROVIDER;
+    if (!oauth) return problem("Not found.", 404);
+    const { items } = await oauth.listUserGrants(c.var.user.id);
+    const grant = items.find(
+      (g) =>
+        g.id === c.req.param("grant") &&
+        (g.metadata as GrantMetadata | null)?.project === c.var.project.id,
+    );
+    if (!grant) return problem("Not found.", 404);
+    await oauth.revokeGrant(grant.id, c.var.user.id);
+    return c.json({ ok: true });
+  });
+
   app.all("/api/*", () => problem("Not found.", 404));
+
+  // Connecting an app over OAuth: the consent at /authorize (oauth.ts).
+  registerConsentRoutes(app);
 
   // `/` is the landing page (site/, through SITE) for people signed out, and the app for people
   // signed in; the site's own files come from it too. It gets no cookie or credentials, and `/`
