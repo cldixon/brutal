@@ -40,6 +40,9 @@ const MIGRATIONS: string[][] = [
     "CREATE INDEX reports_status ON reports (status, id)",
     "CREATE INDEX reports_tool ON reports (tool_name, id)",
   ],
+  // The eval_candidate kind was dropped (it invited the user's task, and so their data, into a
+  // feedback report); what was filed under it stays, as `other`.
+  ["UPDATE reports SET kind = 'other' WHERE kind = 'eval_candidate'"],
 ];
 
 let lastMs = 0;

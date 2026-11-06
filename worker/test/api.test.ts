@@ -280,10 +280,10 @@ describe("MCP", () => {
   test("an agent files with the ingest key; a coding agent triages with the read key", async () => {
     const h = harness();
     const a = await owner(h);
-    const connect = async (key: string) => {
+    const connect = async (key: string, at = "https://brutal.test") => {
       const client = new Client({ name: "test", version: "0" });
       await client.connect(
-        new StreamableHTTPClientTransport(new URL("https://brutal.test/mcp"), {
+        new StreamableHTTPClientTransport(new URL(`${at}/mcp`), {
           requestInit: { headers: { authorization: `Bearer ${key}` } },
           fetch: async (url, init) => h.app.request(new Request(url, init), undefined, h.bindings),
         }),
@@ -294,11 +294,26 @@ describe("MCP", () => {
     expect((await agent.listTools()).tools.map((t) => t.name)).toEqual(["report_feedback"]);
     await agent.callTool({
       name: "report_feedback",
-      arguments: { kind: "eval_candidate", title: "Hard lookup", summary: "Worth an eval." },
+      arguments: { kind: "missing_capability", title: "Hard lookup", summary: "No search." },
     });
-    const dev = await connect(a.read);
+    const dev = await connect(a.read, "https://review.brutal.test");
     const listed = await dev.callTool({ name: "list_reports", arguments: {} });
     const { reports } = JSON.parse((listed.content as { text: string }[])[0]?.text ?? "{}");
     expect(reports.map((r: { title: string }) => r.title)).toEqual(["Hard lookup"]);
   });
+});
+
+test("reports filed as eval_candidate before it was dropped read back as other", async () => {
+  const { Database } = await import("bun:sqlite");
+  const { ReportStore } = await import("../src/reports");
+  const { bunSql } = await import("./harness");
+  const db = new Database(":memory:");
+  const sql = bunSql(db);
+  // A store at the first schema version, with a report of the old kind.
+  new ReportStore(sql);
+  sql.run("UPDATE _schema SET version = 1");
+  sql.run(
+    "INSERT INTO reports (id, kind, title, summary, created_at, updated_at) VALUES ('rep_1', 'eval_candidate', 't', 's', 'x', 'x')",
+  );
+  expect(new ReportStore(sql).get("rep_1")?.kind).toBe("other");
 });

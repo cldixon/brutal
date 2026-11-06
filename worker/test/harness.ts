@@ -46,7 +46,14 @@ export function harness(env: Record<string, unknown> = {}) {
     },
   });
   // Open sign-up unless a test says otherwise; production is invite-only.
-  const bindings = { DB: bunD1(), OAUTH_KV: memoryKV(), SIGNUP: "open", ...env };
+  const bindings = {
+    DB: bunD1(),
+    OAUTH_KV: memoryKV(),
+    SIGNUP: "open",
+    APP_ORIGIN: "https://brutal.test",
+    REVIEW_ORIGIN: "https://review.brutal.test",
+    ...env,
+  };
   const ctx = {
     waitUntil() {},
     passThroughOnException() {},

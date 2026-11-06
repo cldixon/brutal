@@ -54,6 +54,8 @@ export interface Bindings {
   OPERATOR_EMAIL?: string;
   /** The app's own origin, for links in mail sent from the operator's portal. */
   APP_ORIGIN?: string;
+  /** The review MCP server's origin (worker.ts); unset, there is none. */
+  REVIEW_ORIGIN?: string;
   /** The landing page's Worker (site/): `/` for people signed out, and its own files. */
   SITE?: Fetcher;
   /** OAuth clients and grants (worker.ts, oauth.ts). */
@@ -293,7 +295,12 @@ export function createApp(overrides: Partial<Deps> = {}) {
   });
 
   app.get("/api/projects/:project", session, owned, async (c) =>
-    c.json({ project: c.var.project, keys: await listKeys(c.var.db, c.var.project.id) }),
+    c.json({
+      project: c.var.project,
+      keys: await listKeys(c.var.db, c.var.project.id),
+      // Where agents connect: the feedback server here, the review server on its own host.
+      review_origin: c.env.REVIEW_ORIGIN ?? null,
+    }),
   );
 
   const NewKey = z.object({

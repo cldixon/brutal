@@ -6,7 +6,6 @@ export const KINDS = [
   "missing_capability",
   "confusing_output",
   "latency",
-  "eval_candidate",
   "other",
 ] as const;
 export const IMPACTS = ["blocked", "worked_around", "minor"] as const;

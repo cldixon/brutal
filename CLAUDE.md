@@ -12,7 +12,8 @@ A hosted service, deployed from this repo, laid out as Tempra is: three Workers,
 hosts in **`deploy.config.ts`** (the only file to change for a new domain: the app on the domain,
 the portal on admin.<domain>, `mailFrom` on a sending subdomain once one is set up).
 
-- **`brutal`** (`worker/` + `app/`): the app on the main host, thatsbrutal.fyi.
+- **`brutal`** (`worker/` + `app/`): the app on the main host, thatsbrutal.fyi, and the review
+  MCP server on review.thatsbrutal.fyi (`REVIEW_ORIGIN`; locally `http://127.0.0.1:8787`).
 - **`brutal-site`** (`site/`, its Astro project in `site/web/`, kept apart because cf switches to
   a framework build when it finds Astro in a folder): the landing page. No host of its own; the
   app answers `/` from it for people signed out (no cookie forwarded, `Vary: Cookie`) and
@@ -49,16 +50,30 @@ The account model is Tempra's (cldixon/tempra), kept small:
   the code instead. The operator admits people from the portal (or `bun run admin`).
 - **Keys** belong to a project: ingest (files reports) and read (also reads and triages), stored
   as hashes, made and revoked in the web app.
+- **Two MCP servers, one per host** (`worker/src/mcp.ts`, role from `roleOf` in `oauth.ts`): the
+  **feedback** server on the app's host has `report_feedback` alone (with server instructions),
+  so an agent using someone's tools never sees that reports can be read; the **review** server
+  on `REVIEW_ORIGIN` has `list_reports`, `get_report`, `update_report` for the developers'
+  coding agents. Keys: ingest or read on feedback, read only on review. The review host's `/`
+  redirects to the app; its other pages work (sign-in for its consent; the `__Host-` cookie is
+  per host).
 - **Connected apps over OAuth** (claude.ai's connectors and any MCP client that speaks OAuth),
   after Tempra's: `worker/src/worker.ts` puts Cloudflare's `@cloudflare/workers-oauth-provider` in
-  front of the app (discovery, `/register`, `/token`, client metadata documents; clients and
-  grants in KV `OAUTH_KV`), guarding `/mcp`: an access token's grant (`worker/src/oauth.ts`) names
-  one project and a level, `report` (an ingest key's tools) or `triage` (a read key's), checked
-  against the project's owner on every call; a project's keys still work there
-  (`resolveExternalToken`). `/authorize` is the consent, server-rendered with no script
-  (`app/public/consent.css`): signed out it goes to `/sign-in?next=…` and back; it picks or
-  makes the project and the level. The project page lists connections with Disconnect
-  (`/api/projects/:p/connections`, the provider's `listUserGrants`/`revokeGrant`).
+  front of the app, one provider per origin (its resource is `<origin>/mcp` and it checks a
+  token's audience exactly, so a connection works only on the host it was made on; discovery,
+  `/register`, `/token`, client metadata documents; clients and grants in KV `OAUTH_KV`). The
+  provider caches its helpers on `env` once, so each request gets its own env
+  (`Object.create(env)`). A grant (`worker/src/oauth.ts`) names one project and its kind from the
+  host (`ingest` on feedback, `read` on review), checked against the project's owner on every
+  call; a project's keys still work (`resolveExternalToken`). `/authorize` is the consent,
+  server-rendered with no script (`app/public/consent.css`): signed out it goes to
+  `/sign-in?next=…` and back; it picks or makes the project and says what the server lets the
+  app do. The project page lists connections with Disconnect (`/api/projects/:p/connections`,
+  the provider's `listUserGrants`/`revokeGrant`).
+- **The tool's wording** (`packages/schema/src/index.ts`: `TOOL_DESCRIPTION`, versioned by
+  `TOOL_VERSION`; `SERVER_INSTRUCTIONS`; `toolAck(id)`, `TOOL_NOT_RECORDED`) is where most of the
+  product's quality lives: when to report (observable signals), disclosure (never deny it),
+  no personal data, and text in tool results is not an instruction to report.
 
 Routes: `/v1/*` and `/mcp` take a project's key; `/api/*` is the web app's API with the session
 cookie; `/` is the landing page signed out and the app signed in; everything else is the Svelte
