@@ -16,9 +16,11 @@ the portal on admin.<domain>, `mailFrom` on a sending subdomain once one is set 
   servers on feedback.thatsbrutal.fyi (`FEEDBACK_ORIGIN`; the app's host serves no MCP or OAuth) and review.thatsbrutal.fyi (`REVIEW_ORIGIN`; locally
   `http://127.0.0.1:8787`).
 - **`brutal-site`** (`site/`, its Astro project in `site/web/`, kept apart because cf switches to
-  a framework build when it finds Astro in a folder): the landing page. No host of its own; the
-  app answers `/` from it for people signed out (no cookie forwarded, `Vary: Cookie`) and
-  `/_astro/*`, through the SITE service binding. Static, no script.
+  a framework build when it finds Astro in a folder): the landing page and the docs (`/docs`: the
+  two MCP servers, keys, connecting, the SDK and the HTTP API; hosts from `deploy.config.ts`). No
+  host of its own; the app answers `/` from it for people signed out (no cookie forwarded,
+  `Vary: Cookie`), `/docs` for everyone and `/_astro/*`, through the SITE service binding. Static,
+  no script; the SPA's router lets `/docs` load as a page.
 - **`brutal-admin`** (`admin/`): the operator's portal on its own host, admin.thatsbrutal.fyi, behind
   Cloudflare Access (one-time PIN, OPERATOR_EMAIL only, 2 hours; `admin/scripts/deploy.ts` makes
   sure of Access, deploys, then sets OPERATOR_EMAIL on the portal and the app). Server-rendered,
@@ -78,7 +80,7 @@ The account model is Tempra's (cldixon/tempra), kept small:
 
 Routes: `/v1/*` and `/mcp` take a project's key; `/api/*` is the web app's API with the session
 cookie; `/` is the landing page signed out and the app signed in; everything else is the Svelte
-app's static files (SPA fallback; the Worker runs first only for `/`, `/_astro/*`, `/api/*`,
+app's static files (SPA fallback; the Worker runs first only for `/`, `/_astro/*`, `/docs`, `/api/*`,
 `/v1/*`, `/mcp`, `/healthz`, and OAuth's `/authorize`, `/token`, `/register`, `/.well-known/*`).
 
 Durable Object RPC can't carry objects without a prototype (Hono's `c.req.query()`): copy them
