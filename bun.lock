@@ -35,6 +35,16 @@
         "vite": "^8.3.2",
       },
     },
+    "eval": {
+      "name": "@brutal-ai/eval",
+      "dependencies": {
+        "@brutal-ai/schema": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.0",
+        "typescript": "^5.9.3",
+      },
+    },
     "examples": {
       "name": "@brutal-ai/examples",
       "dependencies": {
@@ -198,6 +208,8 @@
     "@brutal-ai/admin": ["@brutal-ai/admin@workspace:admin"],
 
     "@brutal-ai/app": ["@brutal-ai/app@workspace:app"],
+
+    "@brutal-ai/eval": ["@brutal-ai/eval@workspace:eval"],
 
     "@brutal-ai/examples": ["@brutal-ai/examples@workspace:examples"],
 
