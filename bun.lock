@@ -86,7 +86,7 @@
     },
     "worker": {
       "name": "@brutal-ai/worker",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "dependencies": {
         "@brutal-ai/schema": "workspace:*",
         "@cloudflare/workers-oauth-provider": "^1.2.1",

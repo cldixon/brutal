@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
-import { TOOL_NOT_RECORDED } from "@brutal-ai/schema";
-import { createBrutal } from "./index";
+import {
+  AgentInput,
+  TOOL_DESCRIPTION,
+  TOOL_NAME,
+  TOOL_NOT_RECORDED,
+  toolDefinition,
+} from "@brutal-ai/schema";
+import { createBrutal, type Json } from "./index";
 
 /** A fake server: records what was posted, answers with the given statuses in turn. */
 function fakeServer(statuses: (number | "network")[] = [201]) {
@@ -117,11 +123,105 @@ test("redact can scrub or drop; a malformed call is still sent as other", async 
   ]);
 });
 
-test("tool formats", () => {
+test("anthropic and AI SDK formats", () => {
   const brutal = createBrutal(opts(fakeServer().fetch));
   const anthropic = brutal.anthropicTool();
   expect(anthropic.name).toBe("report_feedback");
   expect(Object.keys(anthropic)).toEqual(["name", "description", "input_schema"]);
   const ai = brutal.aiSdkTool("c");
-  expect(typeof ai.execute).toBe("function");
+  expect(Object.keys(ai)).toEqual(["description", "inputSchema", "execute"]);
+  expect(ai.description).toBe(TOOL_DESCRIPTION);
+  expect(ai.inputSchema).toBe(AgentInput);
+});
+
+test("OpenAI formats: a function tool, nested for Chat Completions, flat for Responses", () => {
+  const brutal = createBrutal(opts(fakeServer().fetch));
+  const { input_schema } = toolDefinition();
+  const { $schema, ...bare } = input_schema as { [key: string]: Json };
+  expect($schema).toBeString();
+
+  const chat = brutal.openaiTool();
+  expect(Object.keys(chat)).toEqual(["type", "function"]);
+  expect(chat.type).toBe("function");
+  expect(chat.function).toEqual({
+    name: TOOL_NAME,
+    description: TOOL_DESCRIPTION,
+    parameters: bare,
+    strict: false,
+  });
+
+  const responses = brutal.openaiResponsesTool();
+  expect(responses).toEqual({
+    type: "function",
+    name: TOOL_NAME,
+    description: TOOL_DESCRIPTION,
+    parameters: bare,
+    strict: false,
+  });
+  // Strict mode would need every property required; this schema has optional ones, so it is off.
+  const params = responses.parameters as { properties: object; required: string[] };
+  expect(params.required.length).toBeLessThan(Object.keys(params.properties).length);
+});
+
+test("Bedrock Converse format: toolSpec with the schema under inputSchema.json", () => {
+  const brutal = createBrutal(opts(fakeServer().fetch));
+  const tool = brutal.bedrockTool();
+  expect(Object.keys(tool)).toEqual(["toolSpec"]);
+  expect(Object.keys(tool.toolSpec)).toEqual(["name", "description", "inputSchema"]);
+  expect(tool.toolSpec.name).toBe(TOOL_NAME);
+  expect(tool.toolSpec.description).toBe(TOOL_DESCRIPTION);
+  expect(Object.keys(tool.toolSpec.inputSchema)).toEqual(["json"]);
+  expect(tool.toolSpec.inputSchema.json).toMatchObject({
+    type: "object",
+    required: ["kind", "title", "summary"],
+    additionalProperties: false,
+  });
+  expect(tool.toolSpec.inputSchema.json).not.toHaveProperty("$schema");
+});
+
+test("Mastra and LangChain formats: zod schema, canonical name and description", () => {
+  const brutal = createBrutal(opts(fakeServer().fetch));
+  const mastra = brutal.mastraTool("c");
+  expect(Object.keys(mastra)).toEqual(["id", "description", "inputSchema", "execute"]);
+  expect(mastra.id).toBe(TOOL_NAME);
+  expect(mastra.description).toBe(TOOL_DESCRIPTION);
+  expect(mastra.inputSchema).toBe(AgentInput);
+  const langchain = brutal.langchainTool("c");
+  expect(Object.keys(langchain)).toEqual(["name", "description", "schema", "func"]);
+  expect(langchain.name).toBe(TOOL_NAME);
+  expect(langchain.description).toBe(TOOL_DESCRIPTION);
+  expect(langchain.schema).toBe(AgentInput);
+});
+
+test("every format's call reaches handle and the report carries the conversation", async () => {
+  const server = fakeServer();
+  const brutal = createBrutal(opts(server.fetch));
+  const input = { kind: "bug", title: "t", summary: "s", tool_name: "search_parts" };
+  const ack = "Feedback recorded (rep_1). Carry on with the user's task.";
+
+  // OpenAI (both APIs) hands over the arguments as a JSON string.
+  const openaiCall = { function: { name: TOOL_NAME, arguments: JSON.stringify(input) } };
+  expect(openaiCall.function.name).toBe(brutal.openaiTool().function.name);
+  expect(
+    await brutal.conversation("openai").handle(JSON.parse(openaiCall.function.arguments)),
+  ).toBe(ack);
+
+  // Bedrock Converse: a toolUse block, answered with a toolResult.
+  const toolUse = { toolUseId: "tooluse_1", name: TOOL_NAME, input };
+  expect(toolUse.name).toBe(brutal.bedrockTool().toolSpec.name);
+  const toolResult = {
+    toolUseId: toolUse.toolUseId,
+    content: [{ text: await brutal.conversation("bedrock").handle(toolUse.input) }],
+  };
+  expect(toolResult.content[0].text).toBe(ack);
+
+  // The zod formats call execute/func with the parsed input (and options after it).
+  expect(await brutal.aiSdkTool("ai").execute(input)).toBe(ack);
+  expect(await brutal.mastraTool("mastra").execute(input)).toBe(ack);
+  expect(await brutal.langchainTool("langchain").func(input)).toBe(ack);
+
+  expect(
+    server.posted.map((p) => (p.body.context as { conversation_id: string }).conversation_id),
+  ).toEqual(["openai", "bedrock", "ai", "mastra", "langchain"]);
+  for (const p of server.posted) expect(p.body).toMatchObject(input);
 });

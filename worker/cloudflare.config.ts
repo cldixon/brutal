@@ -1,5 +1,6 @@
 import { bindings, defineConfig, exports } from "cf/config";
 import { COMPATIBILITY_DATE, DEPLOYMENT } from "../deploy.config.ts";
+import { LIMIT_PERIOD, REPORTS_PER_CONVERSATION, REPORTS_PER_KEY } from "./src/limits.ts";
 
 /**
  * The app's Worker for the `cf` CLI (`cf dev`, `cf deploy`, `cf workers types`): the API (/v1), MCP
@@ -55,6 +56,17 @@ export default defineConfig(({ mode }) => {
         // OAuth clients and grants for connected apps (Cloudflare's OAuth provider, worker.ts).
         OAUTH_KV: bindings.kv(),
         ASSETS: bindings.assets(),
+        // Rate limits on filing reports (src/limits.ts, where the numbers are explained).
+        // Namespace ids are account-wide: Tempra, on the same account, has 1001-1003, 2001-2003
+        // and 3001-3003.
+        REPORT_KEY_LIMITER: bindings.rateLimit({
+          namespace: "4001",
+          simple: { limit: REPORTS_PER_KEY, period: LIMIT_PERIOD },
+        }),
+        REPORT_CONVERSATION_LIMITER: bindings.rateLimit({
+          namespace: "4002",
+          simple: { limit: REPORTS_PER_CONVERSATION, period: LIMIT_PERIOD },
+        }),
         APP_ORIGIN: bindings.text(local ? "http://localhost:8787" : `https://${app.host}`),
         // The MCP servers' hosts (worker.ts). Locally the app's host is the feedback server too,
         // and 127.0.0.1 stands in for review.

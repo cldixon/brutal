@@ -78,6 +78,13 @@ The account model is Tempra's (cldixon/tempra), kept small:
   `delete_report` and the owner in the app; a project's retention (null, or 1 to 3650 days) lives
   in its own SQLite (`settings`), and setting one arms the `Project` DO's daily alarm, which runs
   `ReportStore.prune` and re-arms while a retention is set. Projects can't be deleted yet.
+- **Rate limits on filing** (`worker/src/limits.ts`, issue #10): two Rate Limiting bindings,
+  `REPORT_KEY_LIMITER` (30 a minute per key or connection, namespace 4001) and
+  `REPORT_CONVERSATION_LIMITER` (5 a minute per `project:conversation_id`, HTTP only, 4002;
+  Tempra holds 1001–3003 on the same account), checked after validation and before storing on
+  `POST /v1/reports` and `report_feedback` only. Over a limit nothing is stored: HTTP is a 429
+  with `Retry-After`, MCP answers `TOOL_NOT_RECORDED` (never an error). No binding, no limit; a
+  failing limiter lets the report through. Tests pass `fakeLimiter` (`worker/test/harness.ts`).
 - **The tool's wording** (`packages/schema/src/index.ts`: `TOOL_DESCRIPTION`, versioned by
   `TOOL_VERSION`; `SERVER_INSTRUCTIONS`; `toolAck(id)`, `TOOL_NOT_RECORDED`) is where most of the
   product's quality lives: when to report (observable signals), disclosure (never deny it),

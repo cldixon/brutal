@@ -5,6 +5,7 @@ import {
 } from "@cloudflare/workers-oauth-provider";
 import { findKey, type Key, migrated, ownedProject } from "./accounts";
 import { type Bindings, createApp, type Deps, defaultDeps } from "./app";
+import { overFilingLimit } from "./limits";
 import { handleMcp } from "./mcp";
 import { type GrantProps, type Role, roleOf, scopesFor } from "./oauth";
 
@@ -64,7 +65,10 @@ export function createWorker(overrides: Partial<Deps> = {}) {
           } else {
             return new Response(null, { status: 401 });
           }
-          return handleMcp(request, deps.reports(env, key.project_id), key, role);
+          // MCP reports carry no conversation id: only the key's (or connection's) limit applies.
+          return handleMcp(request, deps.reports(env, key.project_id), key, role, () =>
+            overFilingLimit(env, key),
+          );
         },
       },
       defaultHandler: { fetch: (request, env, ctx) => app.fetch(request, env, ctx) },

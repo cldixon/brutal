@@ -144,4 +144,13 @@ const convo = brutal.conversation(conversationId);
     Over HTTP, add a <code>context</code> object beside the agent's fields: conversation, app version,
     branch, model, and <code>recent_tool_calls</code>.
   </p>
+
+  <h2>Limits</h2>
+  <p>
+    Filing is limited, so a looping agent can't flood a project: 30 reports a minute per key or
+    connection, and 5 a minute per conversation (<code>context.conversation_id</code>, over HTTP).
+    Over a limit nothing is stored: HTTP answers <code>429</code> with <code>Retry-After</code>,
+    and <code>report_feedback</code> answers as usual that nothing was recorded, so the agent's turn
+    goes on. Reading and triage aren't limited.
+  </p>
 </Base>

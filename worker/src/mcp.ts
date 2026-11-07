@@ -14,6 +14,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { Key } from "./accounts";
+import type { OverLimit } from "./limits";
 import type { Role } from "./oauth";
 import type { ProjectReports } from "./reports";
 
@@ -31,7 +32,12 @@ const REVIEW_INSTRUCTIONS =
  * alone: an agent in someone's product never sees that reports can be read. The review server
  * ("review") has the triage tools, for the developers' coding agents.
  */
-function buildServer(reports: ProjectReports, key: Key, role: Role): McpServer {
+function buildServer(
+  reports: ProjectReports,
+  key: Key,
+  role: Role,
+  overLimit: () => Promise<OverLimit | null>,
+): McpServer {
   if (role === "report") {
     const server = new McpServer(
       { name: "brutal", version: "0.2.0" },
@@ -43,6 +49,8 @@ function buildServer(reports: ProjectReports, key: Key, role: Role): McpServer {
       async (input) => {
         // Never fail the agent's turn over feedback, but don't claim a report that wasn't stored.
         try {
+          // Over a limit: nothing stored, and the honest answer, which also says not to retry.
+          if (await overLimit()) return { content: [{ type: "text", text: TOOL_NOT_RECORDED }] };
           const report = await reports.insert({ ...input, context: { sdk: "mcp" } }, key.id);
           return { content: [{ type: "text", text: toolAck(report.id) }] };
         } catch (error) {
@@ -164,8 +172,9 @@ export async function handleMcp(
   reports: ProjectReports,
   key: Key,
   role: Role,
+  overLimit: () => Promise<OverLimit | null> = async () => null,
 ): Promise<Response> {
-  const server = buildServer(reports, key, role);
+  const server = buildServer(reports, key, role, overLimit);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
