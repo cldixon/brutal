@@ -12,14 +12,15 @@ at **https://thatsbrutal.fyi/docs** (`site/web/src/pages/docs.astro`).
 
 Two MCP servers, so an agent using your tools never learns that reports can be read:
 
-| Surface                                          | Use                                                                                                         | Key          |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------ |
-| `https://feedback.thatsbrutal.fyi/mcp`           | Feedback MCP: `report_feedback`, nothing else                                                               | ingest, read |
-| `https://review.thatsbrutal.fyi/mcp`             | Review MCP: `list_reports`, `get_report`, `update_report`                                                   | read         |
-| `POST /v1/reports`                               | file one report                                                                                             | ingest       |
-| `GET /v1/reports`, `GET`/`PATCH /v1/reports/:id` | list, read, triage                                                                                          | read         |
-| `GET /v1/schema/tool`                            | the canonical tool definition (name, description, JSON Schema)                                              | none         |
-| `@brutal-ai/sdk`                                 | TypeScript: the tool in Anthropic and Vercel AI SDK shapes, plus a recorder that attaches recent tool calls | ingest       |
+| Surface                                                          | Use                                                                                                         | Key          |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------ |
+| `https://feedback.thatsbrutal.fyi/mcp`                           | Feedback MCP: `report_feedback`, nothing else                                                               | ingest, read |
+| `https://review.thatsbrutal.fyi/mcp`                             | Review MCP: `list_reports`, `get_report`, `update_report`, `delete_report`                                  | read         |
+| `POST /v1/reports`                                               | file one report                                                                                             | ingest       |
+| `GET /v1/reports`, `GET`/`PATCH /v1/reports/:id`                 | list, read, triage                                                                                          | read         |
+| `DELETE /v1/reports/:id`, `DELETE /v1/reports?conversation_id=…` | delete one report, or a conversation's (permanent)                                                          | read         |
+| `GET /v1/schema/tool`                                            | the canonical tool definition (name, description, JSON Schema)                                              | none         |
+| `@brutal-ai/sdk`                                                 | TypeScript: the tool in Anthropic and Vercel AI SDK shapes, plus a recorder that attaches recent tool calls | ingest       |
 
 **Claude (claude.ai, Desktop, mobile):** Settings → Connectors → Add custom connector, with
 either URL. You sign in and pick a project; what the connection may do is the server's (report on

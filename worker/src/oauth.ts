@@ -143,7 +143,7 @@ function consentPage(opts: {
       ${
         review
           ? html`It will <strong>read the project's reports and triage them</strong>: set their
-              status and link issues.`
+              status, link issues, and delete reports.`
           : html`It will <strong>file feedback reports</strong> about the tools it uses. It can't
               read the project's reports.`
       }

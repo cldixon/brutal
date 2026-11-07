@@ -73,6 +73,11 @@ The account model is Tempra's (cldixon/tempra), kept small:
   `/sign-in?next=…` and back; it picks or makes the project and says what the server lets the
   app do. The project page lists connections with Disconnect (`/api/projects/:p/connections`,
   the provider's `listUserGrants`/`revokeGrant`).
+- **Deletion and retention** (#18): a read key deletes a report (`DELETE /v1/reports/:id`) or a
+  conversation's (`DELETE /v1/reports?conversation_id=…`), as does the review server's
+  `delete_report` and the owner in the app; a project's retention (null, or 1 to 3650 days) lives
+  in its own SQLite (`settings`), and setting one arms the `Project` DO's daily alarm, which runs
+  `ReportStore.prune` and re-arms while a retention is set. Projects can't be deleted yet.
 - **The tool's wording** (`packages/schema/src/index.ts`: `TOOL_DESCRIPTION`, versioned by
   `TOOL_VERSION`; `SERVER_INSTRUCTIONS`; `toolAck(id)`, `TOOL_NOT_RECORDED`) is where most of the
   product's quality lives: when to report (observable signals), disclosure (never deny it),

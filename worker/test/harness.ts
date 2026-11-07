@@ -39,6 +39,10 @@ export function harness(env: Record<string, unknown> = {}) {
         get: async (id) => s.get(id),
         list: async (filter) => s.list(rpc(filter)),
         update: async (id, update) => s.update(id, rpc(update)),
+        delete: async (id) => s.delete(id),
+        deleteConversation: async (conversationId) => s.deleteConversation(conversationId),
+        retention: async () => s.retention(),
+        setRetention: async (days) => s.setRetention(days),
       };
     },
     mailer: () => async (to, subject, text) => {

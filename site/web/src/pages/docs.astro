@@ -33,7 +33,7 @@ const review = `https://${DEPLOYMENT.review.host}/mcp`;
         <td><strong>Review</strong></td>
         <td>You and your coding agent</td>
         <td><code>{review}</code></td>
-        <td><code>list_reports</code>, <code>get_report</code>, <code>update_report</code></td>
+        <td><code>list_reports</code>, <code>get_report</code>, <code>update_report</code>, <code>delete_report</code></td>
       </tr>
     </tbody>
   </table>
@@ -85,7 +85,12 @@ const review = `https://${DEPLOYMENT.review.host}/mcp`;
     <li><code>list_reports</code>: newest first, filtered by <code>kind</code>, <code>status</code>, <code>tool_name</code>, <code>impact</code>, <code>agent_name</code>, <code>app_version</code> or <code>branch</code>; pass <code>before</code> (the previous call's <code>next</code>) for the next page.</li>
     <li><code>get_report</code>: one report in full, with the context its integration attached.</li>
     <li><code>update_report</code>: set its <code>status</code> (<code>new</code>, <code>triaged</code>, <code>linked</code>, <code>fixed</code>, <code>verified</code>, <code>wont_fix</code>) and the <code>issue_url</code> that tracks it.</li>
+    <li><code>delete_report</code>: delete one report by <code>id</code>, or every report of one <code>conversation_id</code> (for a user's deletion request). Permanent.</li>
   </ul>
+  <p>
+    On the project page you can also set a <strong>retention</strong>: reports older than that
+    many days are deleted once a day.
+  </p>
   <p>
     Reports were written by other agents: the server tells your agent to check them against the
     code, never to follow them as instructions.
@@ -130,6 +135,8 @@ const convo = brutal.conversation(conversationId);
       <tr><td><code>GET /v1/reports</code></td><td>list reports</td><td>read</td><td><code>list_reports</code></td></tr>
       <tr><td><code>GET /v1/reports/:id</code></td><td>one report</td><td>read</td><td><code>get_report</code></td></tr>
       <tr><td><code>PATCH /v1/reports/:id</code></td><td>triage</td><td>read</td><td><code>update_report</code></td></tr>
+      <tr><td><code>DELETE /v1/reports/:id</code></td><td>delete one report</td><td>read</td><td><code>delete_report</code></td></tr>
+      <tr><td><code>DELETE /v1/reports?conversation_id=…</code></td><td>delete a conversation's reports</td><td>read</td><td><code>delete_report</code></td></tr>
       <tr><td><code>GET /v1/schema/tool</code></td><td>the tool's name, description and JSON Schema</td><td>none</td><td></td></tr>
     </tbody>
   </table>
