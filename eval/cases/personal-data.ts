@@ -18,7 +18,7 @@ const getMember = tool(
       date_of_birth: "1991-02-14",
       address: "[object Object]",
       plan: "Off-peak",
-      _debug: { upstream: "crm", api_key: "crmkey_live_51Hx9QeZ2pLmT7" },
+      _debug: { upstream: "crm", api_key: "crmkey_live_EXAMPLE0000000000" },
     });
   },
 );
