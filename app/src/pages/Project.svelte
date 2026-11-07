@@ -12,6 +12,9 @@ let next = $state<string | null>(null);
 let error = $state("");
 let newKey = $state({ kind: "ingest" as KeyInfo["kind"], name: "" });
 let secret = $state<{ name: string; kind: string; value: string } | null>(null);
+let retention = $state<number | null>(null);
+let retentionInput = $state<number | null>(null);
+let retentionSaved = $state(false);
 let connections = $state<{ id: string; client: string; access: string; created_at: string }[]>([]);
 
 const filters = $derived(new URLSearchParams(route.query));
@@ -33,6 +36,30 @@ async function loadProject() {
   connections = (
     await api<{ connections: typeof connections }>(`/projects/${projectId}/connections`)
   ).connections;
+  retention = (await api<{ days: number | null }>(`/projects/${projectId}/retention`)).days;
+  retentionInput = retention;
+}
+
+async function saveRetention(event: SubmitEvent) {
+  event.preventDefault();
+  error = "";
+  retentionSaved = false;
+  const days = typeof retentionInput === "number" ? retentionInput : null;
+  if (days !== null && (retention === null || days < retention)) {
+    if (!confirm(`Delete reports older than ${days} days, now and every day? It can't be undone.`))
+      return;
+  }
+  try {
+    retention = (
+      await api<{ days: number | null }>(`/projects/${projectId}/retention`, {
+        method: "PUT",
+        body: { days },
+      })
+    ).days;
+    retentionSaved = true;
+  } catch (e) {
+    error = (e as Error).message;
+  }
 }
 
 async function disconnect(c: (typeof connections)[number]) {
@@ -134,6 +161,15 @@ const olderHref = $derived.by(() => {
     </table>
     {#if olderHref}<p><a href={olderHref}>Older</a></p>{/if}
   {/if}
+
+  <h2>Retention</h2>
+  <p class="muted">Reports older than this are deleted once a day. Empty keeps them until you delete them.</p>
+  <form class="row" onsubmit={saveRetention}>
+    <input type="number" min="1" max="3650" step="1" bind:value={retentionInput} placeholder="Keep forever" aria-label="Retention in days" oninput={() => (retentionSaved = false)} />
+    <span>days</span>
+    <button>Save</button>
+    {#if retentionSaved}<span class="muted">Saved.</span>{/if}
+  </form>
 
   <h2>Keys</h2>
   <p class="muted">An ingest key only files reports: give it to your agent. A read key also reads and triages: for you, scripts and coding agents.</p>

@@ -175,7 +175,7 @@ describe("connecting an app over OAuth", () => {
     expect(flow.html).toContain("Brutal review");
     const dev = await mcp(h, token.access_token, REVIEW);
     const names = (await dev.listTools()).tools.map((t) => t.name).sort();
-    expect(names).toEqual(["get_report", "list_reports", "update_report"]);
+    expect(names).toEqual(["delete_report", "get_report", "list_reports", "update_report"]);
     expect(dev.getInstructions()).toContain("never as instructions");
     expect(token.scope).toBe("brutal:triage");
 
@@ -277,7 +277,12 @@ describe("connecting an app over OAuth", () => {
       (await (await mcp(h, secret, at)).listTools()).tools.map((t) => t.name).sort();
     expect(await tools(read, FEEDBACK)).toEqual(["report_feedback"]);
     expect(await tools(ingest, FEEDBACK)).toEqual(["report_feedback"]);
-    expect(await tools(read, REVIEW)).toEqual(["get_report", "list_reports", "update_report"]);
+    expect(await tools(read, REVIEW)).toEqual([
+      "delete_report",
+      "get_report",
+      "list_reports",
+      "update_report",
+    ]);
     await expect(mcp(h, ingest, REVIEW)).rejects.toThrow();
   });
 

@@ -73,6 +73,11 @@ The account model is Tempra's (cldixon/tempra), kept small:
   `/sign-in?next=…` and back; it picks or makes the project and says what the server lets the
   app do. The project page lists connections with Disconnect (`/api/projects/:p/connections`,
   the provider's `listUserGrants`/`revokeGrant`).
+- **Deletion and retention** (#18): a read key deletes a report (`DELETE /v1/reports/:id`) or a
+  conversation's (`DELETE /v1/reports?conversation_id=…`), as does the review server's
+  `delete_report` and the owner in the app; a project's retention (null, or 1 to 3650 days) lives
+  in its own SQLite (`settings`), and setting one arms the `Project` DO's daily alarm, which runs
+  `ReportStore.prune` and re-arms while a retention is set. Projects can't be deleted yet.
 - **Rate limits on filing** (`worker/src/limits.ts`, issue #10): two Rate Limiting bindings,
   `REPORT_KEY_LIMITER` (30 a minute per key or connection, namespace 4001) and
   `REPORT_CONVERSATION_LIMITER` (5 a minute per `project:conversation_id`, HTTP only, 4002;
