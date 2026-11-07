@@ -9,7 +9,8 @@
     "site",
     "site/web",
     "admin",
-    "examples"
+    "examples",
+    "eval"
   ],
   "scripts": {
     "dev": "bun run --cwd worker dev",
