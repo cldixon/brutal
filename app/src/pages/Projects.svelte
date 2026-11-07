@@ -1,5 +1,6 @@
 <script lang="ts">
 import { api, type Project, when } from "../api";
+import Integrations from "../Integrations.svelte";
 import { navigate } from "../router.svelte";
 
 let projects = $state<Project[] | null>(null);
@@ -43,3 +44,5 @@ async function create(event: SubmitEvent) {
     </tbody>
   </table>
 {/if}
+
+<Integrations />

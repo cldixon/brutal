@@ -30,6 +30,7 @@ import {
   type User,
   useCode,
 } from "./accounts";
+import { registerIntegrationRoutes } from "./integrations";
 import { type LimiterBindings, overFilingLimit } from "./limits";
 import { type GrantMetadata, registerConsentRoutes } from "./oauth";
 import { type ProjectReports, RETENTION_DAYS, validRetention } from "./reports";
@@ -65,6 +66,17 @@ export interface Bindings extends LimiterBindings {
   OAUTH_KV?: KVNamespace;
   /** Put here by the OAuth provider for the consent page and the connected apps list. */
   OAUTH_PROVIDER?: OAuthHelpers;
+  /**
+   * Issues from reports (src/integrations.ts; docs/integrations.md), all secrets: the key that
+   * seals people's tokens (base64 of 32 bytes), the GitHub App's client id, secret and slug, and
+   * the Linear app's client id and secret. A provider without its own is shown as unavailable.
+   */
+  INTEGRATIONS_KEY?: string;
+  GITHUB_APP_CLIENT_ID?: string;
+  GITHUB_APP_CLIENT_SECRET?: string;
+  GITHUB_APP_SLUG?: string;
+  LINEAR_CLIENT_ID?: string;
+  LINEAR_CLIENT_SECRET?: string;
 }
 
 export interface MailBinding {
@@ -76,6 +88,9 @@ export interface MailBinding {
   }): Promise<unknown>;
 }
 
+/** fetch, as the integrations call GitHub and Linear with it. */
+export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+
 export type Mailer = (to: string, subject: string, text: string) => Promise<void>;
 
 export interface Deps {
@@ -83,6 +98,8 @@ export interface Deps {
   reports(env: Bindings, projectId: string): ProjectReports;
   /** Sends mail, or null when this deployment cannot. */
   mailer(env: Bindings): Mailer | null;
+  /** Calls GitHub and Linear (src/integrations.ts): fetch in production, fake servers in tests. */
+  providerFetch(env: Bindings): Fetch;
 }
 
 /** Cloudflare Email Service's mailer, from "Brutal" at MAIL_FROM; null without a sending domain. */
@@ -101,12 +118,14 @@ export const defaultDeps: Deps = {
     return env.PROJECT.get(env.PROJECT.idFromName(projectId)) as unknown as ProjectReports;
   },
   mailer: mailerFor,
+  providerFetch: () => (input, init) => fetch(input, init),
 };
 
-type Env = {
+export type AppEnv = {
   Bindings: Bindings;
   Variables: { db: D1Database; key: Key; reports: ProjectReports; user: User; project: Project };
 };
+type Env = AppEnv;
 type C = Context<Env>;
 
 const problem = (error: string, status: number, extra: object = {}) =>
@@ -416,6 +435,8 @@ export function createApp(overrides: Partial<Deps> = {}) {
     await oauth.revokeGrant(grant.id, c.var.user.id);
     return c.json({ ok: true });
   });
+
+  registerIntegrationRoutes(app, deps, { session, owned });
 
   app.all("/api/*", () => problem("Not found.", 404));
 

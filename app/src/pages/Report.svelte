@@ -1,6 +1,7 @@
 <script lang="ts">
 import { STATUSES } from "@brutal-ai/schema/constants";
 import { api, type Report, when } from "../api";
+import CreateIssue from "../CreateIssue.svelte";
 import { navigate } from "../router.svelte";
 
 let { projectId, reportId }: { projectId: string; reportId: string } = $props();
@@ -70,6 +71,10 @@ const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? nu
     {#if report.issue_url}<a href={report.issue_url} rel="noopener noreferrer">Open issue</a>{/if}
   </form>
   <p><button onclick={remove}>Delete report</button></p>
+
+  {#if !report.issue_url}
+    <CreateIssue {projectId} {reportId} onCreated={(r) => { report = r; issueUrl = r.issue_url ?? ""; }} />
+  {/if}
 
   <h2>Recent tool calls</h2>
   {#if calls.length === 0}
