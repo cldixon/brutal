@@ -30,10 +30,11 @@ import {
   type User,
   useCode,
 } from "./accounts";
+import { type LimiterBindings, overFilingLimit } from "./limits";
 import { type GrantMetadata, registerConsentRoutes } from "./oauth";
 import type { ProjectReports } from "./reports";
 
-export interface Bindings {
+export interface Bindings extends LimiterBindings {
   /** Accounts: people, codes, sessions, projects, keys (src/accounts.ts). */
   DB: D1Database;
   /** One Durable Object per project, holding its reports (src/project.ts). */
@@ -159,6 +160,14 @@ export function createApp(overrides: Partial<Deps> = {}) {
   app.post("/v1/reports", keyed("ingest", "read"), async (c) => {
     const parsed = ReportInput.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return problem("Invalid report.", 400, { issues: parsed.error.issues });
+    const over = await overFilingLimit(c.env, c.var.key, parsed.data.context?.conversation_id);
+    if (over) {
+      const res = problem(`Too many reports from this ${over.limit}; nothing was stored.`, 429, {
+        limit: over.limit,
+      });
+      res.headers.set("Retry-After", String(over.retryAfter));
+      return res;
+    }
     const report = await c.var.reports.insert(parsed.data, c.var.key.id);
     return c.json({ id: report.id }, 201);
   });
