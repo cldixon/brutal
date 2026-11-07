@@ -73,6 +73,18 @@ The account model is Tempra's (cldixon/tempra), kept small:
   `/sign-in?next=…` and back; it picks or makes the project and says what the server lets the
   app do. The project page lists connections with Disconnect (`/api/projects/:p/connections`,
   the provider's `listUserGrants`/`revokeGrant`).
+- **Issues in GitHub and Linear** (`worker/src/integrations.ts`, `docs/integrations.md`): a
+  person connects GitHub (a GitHub App's user access tokens: Issues read/write, Metadata read;
+  only repos where the app is installed and they have access) or Linear (OAuth2, `read` and
+  `issues:create`) once, with `state` bound to the session and PKCE, then **Create issue** on a
+  report files it and sets `issue_url` and status `linked`; the project remembers the last
+  target. Tokens are sealed in D1 `integrations` with AES-GCM under the `INTEGRATIONS_KEY`
+  secret, refreshed before expiry, and never sent to the browser. Secrets `GITHUB_APP_CLIENT_ID`,
+  `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_SLUG`, `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`
+  (setup in `docs/integrations.md`); without them a provider is unavailable and its routes
+  answer 503. Provider calls go through `Deps.providerFetch` (fake servers in tests). The issue
+  body (`worker/src/issue-body.ts`, pure, for clustering to reuse) makes report text inert: no
+  mentions, issue references, images or HTML, and fences it cannot close.
 - **The tool's wording** (`packages/schema/src/index.ts`: `TOOL_DESCRIPTION`, versioned by
   `TOOL_VERSION`; `SERVER_INSTRUCTIONS`; `toolAck(id)`, `TOOL_NOT_RECORDED`) is where most of the
   product's quality lives: when to report (observable signals), disclosure (never deny it),

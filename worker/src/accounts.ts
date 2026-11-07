@@ -63,6 +63,40 @@ const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // A person's connections to GitHub and Linear (src/integrations.ts), their tokens sealed with
+    // AES-GCM under INTEGRATIONS_KEY; a connect attempt's state, bound to the session; and each
+    // project's default target for issues.
+    name: "0003_integrations",
+    statements: [
+      `CREATE TABLE integrations (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL CHECK (provider IN ('github', 'linear')),
+        account TEXT NOT NULL,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT,
+        expires_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (user_id, provider, account)
+      )`,
+      `CREATE TABLE integration_states (
+        hash TEXT PRIMARY KEY,
+        session_hash TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        verifier TEXT NOT NULL,
+        return_to TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      )`,
+      `CREATE TABLE project_issue_targets (
+        project_id TEXT PRIMARY KEY,
+        integration_id TEXT NOT NULL,
+        target TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 /**

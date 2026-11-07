@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import type { Deps } from "../src/app";
 import { type ProjectReports, ReportStore, type Sql } from "../src/reports";
 import { createWorker } from "../src/worker";
 import { bunD1 } from "./d1";
@@ -15,7 +16,7 @@ export function bunSql(db = new Database(":memory:")): Sql {
 }
 
 /** The app in process: D1 over bun:sqlite, one in-memory store per project, mail captured. */
-export function harness(env: Record<string, unknown> = {}) {
+export function harness(env: Record<string, unknown> = {}, deps: Partial<Deps> = {}) {
   const stores = new Map<string, ReportStore>();
   const mail: { to: string; subject: string; text: string }[] = [];
   const worker = createWorker({
@@ -44,6 +45,11 @@ export function harness(env: Record<string, unknown> = {}) {
     mailer: () => async (to, subject, text) => {
       mail.push({ to, subject, text });
     },
+    // No real network in tests: a test that calls a provider passes its fake server.
+    providerFetch: () => async (url) => {
+      throw new Error(`No network in tests: ${url}`);
+    },
+    ...deps,
   });
   // Open sign-up unless a test says otherwise; production is invite-only.
   const bindings = {
