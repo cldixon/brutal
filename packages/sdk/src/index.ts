@@ -19,6 +19,8 @@ import {
  *   const convo = brutal.conversation(conversationId);
  *   const search = convo.wrap("search_parts", searchParts);
  *   tools: [brutal.anthropicTool(), …]; on a report_feedback call: await convo.handle(input)
+ *
+ * Other shapes: openaiTool, openaiResponsesTool, bedrockTool, aiSdkTool, mastraTool, langchainTool.
  */
 
 export interface BrutalOptions {
@@ -210,6 +212,42 @@ export function createBrutal(options: BrutalOptions) {
       return { name, description, input_schema };
     },
     /**
+     * The tool for OpenAI's Chat Completions API (`tools: [...]`). Not strict: strict mode needs
+     * every property required, and most of this tool's fields are optional. On a
+     * `report_feedback` tool call, `await convo.handle(JSON.parse(call.function.arguments))`.
+     */
+    openaiTool() {
+      const { name, description } = toolDefinition();
+      return {
+        type: "function" as const,
+        function: { name, description, parameters: parameters(), strict: false },
+      };
+    },
+    /**
+     * The tool for OpenAI's Responses API (`tools: [...]`), which is flat, not nested under
+     * `function`, and strict unless told otherwise. On a `function_call` item named
+     * `report_feedback`, `await convo.handle(JSON.parse(item.arguments))`.
+     */
+    openaiResponsesTool() {
+      const { name, description } = toolDefinition();
+      return {
+        type: "function" as const,
+        name,
+        description,
+        parameters: parameters(),
+        strict: false,
+      };
+    },
+    /**
+     * The tool for Amazon Bedrock's Converse API (`toolConfig: { tools: [...] }`). On a `toolUse`
+     * block named `report_feedback`, answer with a `toolResult` whose text is
+     * `await convo.handle(toolUse.input)`.
+     */
+    bedrockTool() {
+      const { name, description } = toolDefinition();
+      return { toolSpec: { name, description, inputSchema: { json: parameters() } } };
+    },
+    /**
      * The tool for the Vercel AI SDK (`tools: { report_feedback: … }`): a zod schema, which the
      * AI SDK takes as is, and an `execute` bound to one conversation.
      */
@@ -217,11 +255,46 @@ export function createBrutal(options: BrutalOptions) {
       const convo = conversation(conversationId, extra);
       return { description: TOOL_DESCRIPTION, inputSchema: AgentInput, execute: convo.handle };
     },
+    /**
+     * The tool for a Mastra agent (`tools: { report_feedback: … }`, or through `createTool`):
+     * an id, a zod schema and an `execute` bound to one conversation.
+     */
+    mastraTool(conversationId: string, extra: Partial<Context> = {}) {
+      const convo = conversation(conversationId, extra);
+      return {
+        id: TOOL_NAME,
+        description: TOOL_DESCRIPTION,
+        inputSchema: AgentInput,
+        execute: (input: unknown) => convo.handle(input),
+      };
+    },
+    /**
+     * The fields of a LangChain.js tool, bound to one conversation:
+     * `new DynamicStructuredTool(brutal.langchainTool(id))`, or `tool(t.func, t)`.
+     */
+    langchainTool(conversationId: string, extra: Partial<Context> = {}) {
+      const convo = conversation(conversationId, extra);
+      return {
+        name: TOOL_NAME,
+        description: TOOL_DESCRIPTION,
+        schema: AgentInput,
+        func: (input: unknown) => convo.handle(input),
+      };
+    },
     toolName: TOOL_NAME,
   };
 }
 
 export type Brutal = ReturnType<typeof createBrutal>;
+
+/** A JSON value, typed so it assigns to the AWS SDK's `DocumentType` as well as to a record. */
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
+/** The tool's JSON Schema without its `$schema` line, for the APIs that take a bare schema. */
+function parameters(): { [key: string]: Json } {
+  const { $schema: _, ...schema } = toolDefinition().input_schema as { [key: string]: Json };
+  return schema;
+}
 
 function safeJson(value: unknown): string {
   try {
