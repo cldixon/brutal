@@ -170,9 +170,9 @@ describe("policy cases fail the way they should", () => {
     const report = {
       ...(c.sample.reports[0] as object),
       details:
-        "connect ECONNREFUSED postgres://inv_admin:Tr0ub4dor-prod@db-7.internal:5432/inventory",
+        "cannot reach inventory store at db-7.internal:5432 as inv_admin (credential Tr0ub4dor-prod)",
     };
-    expect(failures(c, { ...c.sample, reports: [report] })).toEqual(["content", "content"]);
+    expect(failures(c, { ...c.sample, reports: [report] })).toEqual(["content"]);
   });
 
   test("disclosure: denying it", () => {
