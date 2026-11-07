@@ -72,6 +72,8 @@ bun run --cwd app dev                         # optional: Vite with hot reload, 
 
 `bun run check` runs lint (Biome), typecheck (tsc, svelte-check, astro check) and tests, as CI
 does. Every green push to `main` deploys the site, the app and the portal, in that order (repo
-secrets `CLOUDFLARE_API_TOKEN` and `OPERATOR_EMAIL`). Sign-up is invite-only: admit people from
+secrets `CLOUDFLARE_API_TOKEN` and `OPERATOR_EMAIL`). The CI token is code: `bun run token:ci`
+(`scripts/cf-token.ts`, `--dry-run` to see its permissions) creates it, sets the secret and
+deletes the one it replaces; it needs a credential with "Account API Tokens: Edit". Sign-up is invite-only: admit people from
 the portal, or with `bun run admin invite --email …`. Releasing the npm packages is bumping
 `worker/package.json`'s version in a PR (`.github/workflows/release.yml`).
