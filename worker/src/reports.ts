@@ -43,7 +43,29 @@ const MIGRATIONS: string[][] = [
   // The eval_candidate kind was dropped (it invited the user's task, and so their data, into a
   // feedback report); what was filed under it stays, as `other`.
   ["UPDATE reports SET kind = 'other' WHERE kind = 'eval_candidate'"],
+  // Deletion and retention (#18): the project's settings (its retention in days), and indexes for
+  // deleting a conversation's reports and pruning old ones.
+  [
+    "CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS reports_conversation ON reports (conversation_id)",
+    "CREATE INDEX IF NOT EXISTS reports_created ON reports (created_at)",
+  ],
 ];
+
+/** The retention a project may set, in days: none (null), or within this range. */
+export const RETENTION_DAYS = { min: 1, max: 3650 } as const;
+
+const DAY_MS = 86_400_000;
+
+/** Whether `days` is a retention a project may set (null for none). */
+export function validRetention(days: unknown): days is number | null {
+  return (
+    days === null ||
+    (Number.isInteger(days) &&
+      (days as number) >= RETENTION_DAYS.min &&
+      (days as number) <= RETENTION_DAYS.max)
+  );
+}
 
 let lastMs = 0;
 
@@ -209,6 +231,48 @@ export class ReportStore {
     }
     return this.get(id);
   }
+
+  /** Deletes one report, for good. False if there was none. */
+  delete(id: string): boolean {
+    return this.sql.all("DELETE FROM reports WHERE id = ? RETURNING id", id).length > 0;
+  }
+
+  /** Deletes every report of one conversation (a user's deletion request); returns how many. */
+  deleteConversation(conversationId: string): number {
+    return this.sql.all(
+      "DELETE FROM reports WHERE conversation_id = ? RETURNING id",
+      conversationId,
+    ).length;
+  }
+
+  /** The project's retention in days, or null to keep reports until deleted. */
+  retention(): number | null {
+    const row = this.sql.all<{ value: string }>(
+      "SELECT value FROM settings WHERE name = 'retention_days'",
+    )[0];
+    return row ? Number(row.value) : null;
+  }
+
+  /** Sets the retention (null for none); throws on a value outside RETENTION_DAYS. */
+  setRetention(days: number | null): number | null {
+    if (!validRetention(days)) throw new Error("Retention is null or a whole number of days.");
+    if (days === null) this.sql.run("DELETE FROM settings WHERE name = 'retention_days'");
+    else
+      this.sql.run(
+        `INSERT INTO settings (name, value) VALUES ('retention_days', ?)
+         ON CONFLICT (name) DO UPDATE SET value = excluded.value`,
+        String(days),
+      );
+    return days;
+  }
+
+  /** Deletes reports older than the retention, as of `now` (ms); returns how many. */
+  prune(now: number): number {
+    const days = this.retention();
+    if (days === null) return 0;
+    const cutoff = new Date(now - days * DAY_MS).toISOString();
+    return this.sql.all("DELETE FROM reports WHERE created_at < ? RETURNING id", cutoff).length;
+  }
 }
 
 /** What the app asks of a project's reports: the store's methods, asynchronous (DO RPC). */
@@ -217,4 +281,9 @@ export interface ProjectReports {
   get(id: string): Promise<Report | null>;
   list(filter?: ReportFilter): Promise<ReportPage>;
   update(id: string, update: ReportUpdate): Promise<Report | null>;
+  delete(id: string): Promise<boolean>;
+  deleteConversation(conversationId: string): Promise<number>;
+  retention(): Promise<number | null>;
+  /** Also arms (or disarms) the project's daily prune. */
+  setRetention(days: number | null): Promise<number | null>;
 }

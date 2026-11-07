@@ -31,10 +31,11 @@ import {
   useCode,
 } from "./accounts";
 import { registerIntegrationRoutes } from "./integrations";
+import { type LimiterBindings, overFilingLimit } from "./limits";
 import { type GrantMetadata, registerConsentRoutes } from "./oauth";
-import type { ProjectReports } from "./reports";
+import { type ProjectReports, RETENTION_DAYS, validRetention } from "./reports";
 
-export interface Bindings {
+export interface Bindings extends LimiterBindings {
   /** Accounts: people, codes, sessions, projects, keys (src/accounts.ts). */
   DB: D1Database;
   /** One Durable Object per project, holding its reports (src/project.ts). */
@@ -146,6 +147,19 @@ function fromThisSite(req: Request): boolean {
   return req.headers.get("Sec-Fetch-Site") === "same-origin";
 }
 
+/** Deletes the report in the path from the project already in context. */
+async function deleteOne(c: C) {
+  const deleted = await c.var.reports.delete(c.req.param("id") ?? "");
+  return deleted ? c.json({ deleted: 1 }) : problem("Not found.", 404);
+}
+
+/** Deletes every report of `?conversation_id=` from the project already in context. */
+async function deleteConversation(c: C) {
+  const conversationId = c.req.query("conversation_id");
+  if (!conversationId) return problem("Pass conversation_id to delete its reports.", 400);
+  return c.json({ deleted: await c.var.reports.deleteConversation(conversationId) });
+}
+
 export function createApp(overrides: Partial<Deps> = {}) {
   const deps: Deps = { ...defaultDeps, ...overrides };
   const app = new Hono<Env>();
@@ -178,6 +192,14 @@ export function createApp(overrides: Partial<Deps> = {}) {
   app.post("/v1/reports", keyed("ingest", "read"), async (c) => {
     const parsed = ReportInput.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return problem("Invalid report.", 400, { issues: parsed.error.issues });
+    const over = await overFilingLimit(c.env, c.var.key, parsed.data.context?.conversation_id);
+    if (over) {
+      const res = problem(`Too many reports from this ${over.limit}; nothing was stored.`, 429, {
+        limit: over.limit,
+      });
+      res.headers.set("Retry-After", String(over.retryAfter));
+      return res;
+    }
     const report = await c.var.reports.insert(parsed.data, c.var.key.id);
     return c.json({ id: report.id }, 201);
   });
@@ -198,6 +220,10 @@ export function createApp(overrides: Partial<Deps> = {}) {
     const report = await c.var.reports.update(c.req.param("id"), parsed.data);
     return report ? c.json(report) : problem("Not found.", 404);
   });
+
+  // Deletion (#18): one report, or every report of one conversation (a user's deletion request).
+  app.delete("/v1/reports/:id", keyed("read"), (c) => deleteOne(c));
+  app.delete("/v1/reports", keyed("read"), (c) => deleteConversation(c));
 
   // --- People: the web app's API, with a session cookie --------------------------------------
 
@@ -355,6 +381,26 @@ export function createApp(overrides: Partial<Deps> = {}) {
     if (!parsed.success) return problem("Invalid update.", 400, { issues: parsed.error.issues });
     const report = await c.var.reports.update(c.req.param("id"), parsed.data);
     return report ? c.json(report) : problem("Not found.", 404);
+  });
+
+  app.delete("/api/projects/:project/reports/:id", session, owned, (c) => deleteOne(c));
+  app.delete("/api/projects/:project/reports", session, owned, (c) => deleteConversation(c));
+
+  // How long the project keeps reports: null for until deleted, else days (pruned daily).
+  app.get("/api/projects/:project/retention", session, owned, async (c) =>
+    c.json({ days: await c.var.reports.retention() }),
+  );
+
+  app.put("/api/projects/:project/retention", session, owned, async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { days?: unknown } | null;
+    const days = body?.days;
+    if (!body || !("days" in body) || !validRetention(days)) {
+      return problem(
+        `Retention is null (keep reports) or a whole number of days, ${RETENTION_DAYS.min} to ${RETENTION_DAYS.max}.`,
+        400,
+      );
+    }
+    return c.json({ days: await c.var.reports.setRetention(days) });
   });
 
   // Apps connected to a project over OAuth (claude.ai's connectors and the like), and revoking them.

@@ -276,6 +276,87 @@ describe("reports", () => {
   });
 });
 
+describe("deletion and retention", () => {
+  const file = async (h: ReturnType<typeof harness>, key: string, conversation_id: string) => {
+    const res = await h.keyed(key, "/v1/reports", {
+      method: "POST",
+      body: JSON.stringify({ ...report, context: { conversation_id } }),
+    });
+    return ((await res.json()) as { id: string }).id;
+  };
+
+  test("a read key deletes by id or conversation; an ingest key and other projects can't", async () => {
+    const h = harness();
+    const a = await owner(h);
+    const b = await owner(h, "other@example.com");
+    const one = await file(h, a.ingest, "c1");
+    await file(h, a.ingest, "c2");
+    await file(h, a.ingest, "c2");
+
+    expect((await h.keyed(a.ingest, `/v1/reports/${one}`, { method: "DELETE" })).status).toBe(403);
+    expect(
+      (await h.keyed(a.ingest, "/v1/reports?conversation_id=c2", { method: "DELETE" })).status,
+    ).toBe(403);
+    // Another project's key finds nothing to delete.
+    expect((await h.keyed(b.read, `/v1/reports/${one}`, { method: "DELETE" })).status).toBe(404);
+    const elsewhere = await h.keyed(b.read, "/v1/reports?conversation_id=c2", { method: "DELETE" });
+    expect(await elsewhere.json()).toEqual({ deleted: 0 });
+
+    const gone = await h.keyed(a.read, `/v1/reports/${one}`, { method: "DELETE" });
+    expect(await gone.json()).toEqual({ deleted: 1 });
+    expect((await h.keyed(a.read, `/v1/reports/${one}`)).status).toBe(404);
+    expect((await h.keyed(a.read, `/v1/reports/${one}`, { method: "DELETE" })).status).toBe(404);
+    expect((await h.keyed(a.read, "/v1/reports", { method: "DELETE" })).status).toBe(400);
+    const conv = await h.keyed(a.read, "/v1/reports?conversation_id=c2", { method: "DELETE" });
+    expect(await conv.json()).toEqual({ deleted: 2 });
+    const left = (await (await h.keyed(a.read, "/v1/reports")).json()) as { reports: unknown[] };
+    expect(left.reports).toEqual([]);
+  });
+
+  test("the owner deletes and sets retention in the app; a stranger gets 404", async () => {
+    const h = harness();
+    const a = await owner(h);
+    const one = await file(h, a.ingest, "c1");
+    await file(h, a.ingest, "c2");
+    const base = `/api/projects/${a.project.id}`;
+    const stranger = await h.signIn("stranger@example.com");
+
+    for (const [path, method, body] of [
+      [`${base}/reports/${one}`, "DELETE", undefined],
+      [`${base}/reports?conversation_id=c2`, "DELETE", undefined],
+      [`${base}/retention`, "GET", undefined],
+      [`${base}/retention`, "PUT", { days: 30 }],
+    ] as const) {
+      expect((await h.call(path, { method, body, cookie: stranger })).status).toBe(404);
+    }
+    expect((await h.call(`${base}/reports/${one}`, { method: "DELETE" })).status).toBe(401);
+
+    const del = await h.call(`${base}/reports/${one}`, { method: "DELETE", cookie: a.cookie });
+    expect(await del.json()).toEqual({ deleted: 1 });
+    const conv = await h.call(`${base}/reports?conversation_id=c2`, {
+      method: "DELETE",
+      cookie: a.cookie,
+    });
+    expect(await conv.json()).toEqual({ deleted: 1 });
+
+    const get = async () =>
+      (await (await h.call(`${base}/retention`, { cookie: a.cookie })).json()) as {
+        days: number | null;
+      };
+    expect(await get()).toEqual({ days: null });
+    const put = (body: unknown) =>
+      h.call(`${base}/retention`, { method: "PUT", body, cookie: a.cookie });
+    expect((await put({ days: 90 })).status).toBe(200);
+    expect(await get()).toEqual({ days: 90 });
+    for (const bad of [{ days: 0 }, { days: 3651 }, { days: 1.5 }, { days: "90" }, {}]) {
+      expect((await put(bad)).status).toBe(400);
+    }
+    expect(await get()).toEqual({ days: 90 });
+    expect((await put({ days: null })).status).toBe(200);
+    expect(await get()).toEqual({ days: null });
+  });
+});
+
 describe("MCP", () => {
   test("an agent files with the ingest key; a coding agent triages with the read key", async () => {
     const h = harness();
@@ -300,6 +381,47 @@ describe("MCP", () => {
     const listed = await dev.callTool({ name: "list_reports", arguments: {} });
     const { reports } = JSON.parse((listed.content as { text: string }[])[0]?.text ?? "{}");
     expect(reports.map((r: { title: string }) => r.title)).toEqual(["Hard lookup"]);
+  });
+
+  test("delete_report is on the review server only, by id or conversation", async () => {
+    const h = harness();
+    const a = await owner(h);
+    const connect = async (key: string, at: string) => {
+      const client = new Client({ name: "test", version: "0" });
+      await client.connect(
+        new StreamableHTTPClientTransport(new URL(`${at}/mcp`), {
+          requestInit: { headers: { authorization: `Bearer ${key}` } },
+          fetch: async (url, init) => h.app.request(new Request(url, init), undefined, h.bindings),
+        }),
+      );
+      return client;
+    };
+    for (const key of [a.ingest, a.read]) {
+      const feedback = await connect(key, "https://feedback.brutal.test");
+      expect((await feedback.listTools()).tools.map((t) => t.name)).not.toContain("delete_report");
+    }
+    const ids: string[] = [];
+    for (const conversation_id of ["c1", "c2", "c2"]) {
+      const res = await h.keyed(a.ingest, "/v1/reports", {
+        method: "POST",
+        body: JSON.stringify({ ...report, context: { conversation_id } }),
+      });
+      ids.push(((await res.json()) as { id: string }).id);
+    }
+    const dev = await connect(a.read, "https://review.brutal.test");
+    const tool = (await dev.listTools()).tools.find((t) => t.name === "delete_report");
+    expect(tool?.description).toContain("permanently");
+    const text = (r: unknown) => (r as { content: { text: string }[] }).content[0]?.text ?? "";
+    const call = (args: Record<string, unknown>) =>
+      dev.callTool({ name: "delete_report", arguments: args });
+
+    expect((await call({})).isError).toBe(true);
+    expect((await call({ id: ids[0], conversation_id: "c2" })).isError).toBe(true);
+    expect(JSON.parse(text(await call({ id: ids[0] })))).toEqual({ deleted: 1 });
+    expect((await call({ id: ids[0] })).isError).toBe(true);
+    expect(JSON.parse(text(await call({ conversation_id: "c2" })))).toEqual({ deleted: 2 });
+    const listed = await dev.callTool({ name: "list_reports", arguments: {} });
+    expect(JSON.parse(text(listed)).reports).toEqual([]);
   });
 });
 

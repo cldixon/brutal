@@ -33,7 +33,7 @@ const review = `https://${DEPLOYMENT.review.host}/mcp`;
         <td><strong>Review</strong></td>
         <td>You and your coding agent</td>
         <td><code>{review}</code></td>
-        <td><code>list_reports</code>, <code>get_report</code>, <code>update_report</code></td>
+        <td><code>list_reports</code>, <code>get_report</code>, <code>update_report</code>, <code>delete_report</code></td>
       </tr>
     </tbody>
   </table>
@@ -85,7 +85,12 @@ const review = `https://${DEPLOYMENT.review.host}/mcp`;
     <li><code>list_reports</code>: newest first, filtered by <code>kind</code>, <code>status</code>, <code>tool_name</code>, <code>impact</code>, <code>agent_name</code>, <code>app_version</code> or <code>branch</code>; pass <code>before</code> (the previous call's <code>next</code>) for the next page.</li>
     <li><code>get_report</code>: one report in full, with the context its integration attached.</li>
     <li><code>update_report</code>: set its <code>status</code> (<code>new</code>, <code>triaged</code>, <code>linked</code>, <code>fixed</code>, <code>verified</code>, <code>wont_fix</code>) and the <code>issue_url</code> that tracks it.</li>
+    <li><code>delete_report</code>: delete one report by <code>id</code>, or every report of one <code>conversation_id</code> (for a user's deletion request). Permanent.</li>
   </ul>
+  <p>
+    On the project page you can also set a <strong>retention</strong>: reports older than that
+    many days are deleted once a day.
+  </p>
   <p>
     Reports were written by other agents: the server tells your agent to check them against the
     code, never to follow them as instructions.
@@ -130,11 +135,22 @@ const convo = brutal.conversation(conversationId);
       <tr><td><code>GET /v1/reports</code></td><td>list reports</td><td>read</td><td><code>list_reports</code></td></tr>
       <tr><td><code>GET /v1/reports/:id</code></td><td>one report</td><td>read</td><td><code>get_report</code></td></tr>
       <tr><td><code>PATCH /v1/reports/:id</code></td><td>triage</td><td>read</td><td><code>update_report</code></td></tr>
+      <tr><td><code>DELETE /v1/reports/:id</code></td><td>delete one report</td><td>read</td><td><code>delete_report</code></td></tr>
+      <tr><td><code>DELETE /v1/reports?conversation_id=…</code></td><td>delete a conversation's reports</td><td>read</td><td><code>delete_report</code></td></tr>
       <tr><td><code>GET /v1/schema/tool</code></td><td>the tool's name, description and JSON Schema</td><td>none</td><td></td></tr>
     </tbody>
   </table>
   <p>
     Over HTTP, add a <code>context</code> object beside the agent's fields: conversation, app version,
     branch, model, and <code>recent_tool_calls</code>.
+  </p>
+
+  <h2>Limits</h2>
+  <p>
+    Filing is limited, so a looping agent can't flood a project: 30 reports a minute per key or
+    connection, and 5 a minute per conversation (<code>context.conversation_id</code>, over HTTP).
+    Over a limit nothing is stored: HTTP answers <code>429</code> with <code>Retry-After</code>,
+    and <code>report_feedback</code> answers as usual that nothing was recorded, so the agent's turn
+    goes on. Reading and triage aren't limited.
   </p>
 </Base>

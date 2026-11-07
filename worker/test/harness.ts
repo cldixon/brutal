@@ -40,6 +40,10 @@ export function harness(env: Record<string, unknown> = {}, deps: Partial<Deps> =
         get: async (id) => s.get(id),
         list: async (filter) => s.list(rpc(filter)),
         update: async (id, update) => s.update(id, rpc(update)),
+        delete: async (id) => s.delete(id),
+        deleteConversation: async (conversationId) => s.deleteConversation(conversationId),
+        retention: async () => s.retention(),
+        setRetention: async (days) => s.setRetention(days),
       };
     },
     mailer: () => async (to, subject, text) => {
@@ -129,4 +133,23 @@ export function harness(env: Record<string, unknown> = {}, deps: Partial<Deps> =
     );
 
   return { app, bindings, call, keyed, signIn, mail, stores };
+}
+
+/**
+ * A stand-in for Cloudflare's Rate Limiting binding: `limit` calls per key, with no window (a test
+ * runs well inside one). Pass it in harness's env as REPORT_KEY_LIMITER or
+ * REPORT_CONVERSATION_LIMITER; without one there is no limit. `seen` records each key counted.
+ */
+export function fakeLimiter(limit: number) {
+  const counts = new Map<string, number>();
+  const seen: string[] = [];
+  return {
+    seen,
+    async limit({ key }: { key: string }) {
+      seen.push(key);
+      const n = (counts.get(key) ?? 0) + 1;
+      counts.set(key, n);
+      return { success: n <= limit };
+    },
+  };
 }

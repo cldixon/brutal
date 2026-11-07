@@ -2,6 +2,7 @@
 import { STATUSES } from "@brutal-ai/schema/constants";
 import { api, type Report, when } from "../api";
 import CreateIssue from "../CreateIssue.svelte";
+import { navigate } from "../router.svelte";
 
 let { projectId, reportId }: { projectId: string; reportId: string } = $props();
 
@@ -25,6 +26,17 @@ async function update(change: { status?: string; issue_url?: string | null }) {
       method: "PATCH",
       body: change,
     });
+  } catch (e) {
+    error = (e as Error).message;
+  }
+}
+
+async function remove() {
+  if (!confirm("Delete this report? It can't be undone.")) return;
+  error = "";
+  try {
+    await api(`/projects/${projectId}/reports/${reportId}`, { method: "DELETE" });
+    navigate(`/projects/${projectId}`);
   } catch (e) {
     error = (e as Error).message;
   }
@@ -58,6 +70,7 @@ const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? nu
     <button>Save link</button>
     {#if report.issue_url}<a href={report.issue_url} rel="noopener noreferrer">Open issue</a>{/if}
   </form>
+  <p><button onclick={remove}>Delete report</button></p>
 
   {#if !report.issue_url}
     <CreateIssue {projectId} {reportId} onCreated={(r) => { report = r; issueUrl = r.issue_url ?? ""; }} />
