@@ -64,6 +64,7 @@ code.block {
   word-break: break-all;
 }
 form.row,
+div.row,
 p.row {
   display: flex;
   gap: 0.5rem;
@@ -87,6 +88,32 @@ button {
 button.primary {
   background: #111;
   color: #fff;
+}
+button:disabled {
+  border-color: #bbb;
+  background: #f4f4f4;
+  color: #767676;
+  cursor: not-allowed;
+}
+/* Create issue and its ▾: one control, two buttons. */
+.split {
+  display: inline-flex;
+  white-space: nowrap;
+}
+.split .caret {
+  border-left: 1px solid #fff;
+  padding-inline: 0.45rem;
+  background: #111;
+  color: #fff;
+}
+.split .caret:disabled,
+.split button:disabled {
+  border-color: #bbb;
+  background: #f4f4f4;
+  color: #767676;
+}
+form.picker {
+  margin: 0.4rem 0;
 }
 button.link {
   border: 0;

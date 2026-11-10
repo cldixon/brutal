@@ -80,9 +80,11 @@ The account model is Tempra's (cldixon/tempra), kept small:
 - **Issues in GitHub and Linear** (`worker/src/integrations.ts`, `docs/integrations.md`): a
   person connects GitHub (a GitHub App's user access tokens: Issues read/write, Metadata read;
   only repos where the app is installed and they have access) or Linear (OAuth2, `read` and
-  `issues:create`) once, with `state` bound to the session and PKCE, then **Create issue** on a
-  report files it and sets `issue_url` and status `linked`; the project remembers the last
-  target. Tokens are sealed in D1 `integrations` with AES-GCM under the `INTEGRATIONS_KEY`
+  `issues:create`) once, with `state` bound to the session and PKCE, then **Create issue** (one
+  button on a report's page and on each row of its project's reports, `app/src/IssueButton.svelte`;
+  greyed out until connected, ▾ to pick another place) files it with a **Brutal** label (made when
+  missing, best effort) and sets `issue_url` and status `linked`; the project remembers the last
+  target and the button files there. Tokens are sealed in D1 `integrations` with AES-GCM under the `INTEGRATIONS_KEY`
   secret, refreshed before expiry, and never sent to the browser. Secrets `GITHUB_APP_CLIENT_ID`,
   `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_SLUG`, `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`
   (setup in `docs/integrations.md`); without them a provider is unavailable and its routes

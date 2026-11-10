@@ -1,6 +1,8 @@
 <script lang="ts">
 import { IMPACTS, KINDS, STATUSES } from "@brutal-ai/schema/constants";
 import { api, type KeyInfo, type Project, type Report, when } from "../api";
+import IssueButton from "../IssueButton.svelte";
+import { Issues } from "../issues.svelte";
 import { navigate, route } from "../router.svelte";
 
 let { projectId }: { projectId: string } = $props();
@@ -83,6 +85,11 @@ $effect(() => {
   loadProject().catch((e) => (error = (e as Error).message));
 });
 
+const issues = $derived(new Issues(projectId));
+$effect(() => {
+  issues.load().catch((e) => (error = (e as Error).message));
+});
+
 function filter(name: string, value: string) {
   const q = new URLSearchParams(route.query);
   if (value) q.set(name, value);
@@ -145,7 +152,7 @@ const olderHref = $derived.by(() => {
     <p class="muted">No reports{filters.size ? " match these filters" : " yet. Connect an agent below"}.</p>
   {:else}
     <table>
-      <thead><tr><th>When</th><th>Kind</th><th>Title</th><th>Tool</th><th>Impact</th><th>Status</th></tr></thead>
+      <thead><tr><th>When</th><th>Kind</th><th>Title</th><th>Tool</th><th>Impact</th><th>Status</th><th>Issue</th></tr></thead>
       <tbody>
         {#each reports as r (r.id)}
           <tr>
@@ -155,6 +162,7 @@ const olderHref = $derived.by(() => {
             <td>{r.tool_name ?? ""}</td>
             <td>{r.impact ?? ""}</td>
             <td>{r.status}</td>
+            <td><IssueButton {issues} report={r} onCreated={(updated) => (reports = (reports ?? []).map((x) => (x.id === updated.id ? updated : x)))} /></td>
           </tr>
         {/each}
       </tbody>

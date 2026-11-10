@@ -1,25 +1,27 @@
 <script lang="ts">
 import { STATUSES } from "@brutal-ai/schema/constants";
 import { api, type Report, when } from "../api";
-import CreateIssue from "../CreateIssue.svelte";
+import IssueButton from "../IssueButton.svelte";
+import { Issues } from "../issues.svelte";
 import { navigate } from "../router.svelte";
 
 let { projectId, reportId }: { projectId: string; reportId: string } = $props();
 
 let report = $state<Report | null>(null);
-let issueUrl = $state("");
 let error = $state("");
+const issues = $derived(new Issues(projectId));
 
 $effect(() => {
   api<Report>(`/projects/${projectId}/reports/${reportId}`)
-    .then((r) => {
-      report = r;
-      issueUrl = r.issue_url ?? "";
-    })
+    .then((r) => (report = r))
     .catch((e) => (error = (e as Error).message));
 });
 
-async function update(change: { status?: string; issue_url?: string | null }) {
+$effect(() => {
+  issues.load().catch((e) => (error = (e as Error).message));
+});
+
+async function update(change: { status?: string }) {
   error = "";
   try {
     report = await api<Report>(`/projects/${projectId}/reports/${reportId}`, {
@@ -62,19 +64,12 @@ const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? nu
   {#if report.user_impact}<h2>User impact</h2><p>{report.user_impact}</p>{/if}
 
   <h2>Triage</h2>
-  <form class="row" onsubmit={(e) => { e.preventDefault(); update({ issue_url: issueUrl || null }); }}>
-    <select value={report.status} onchange={(e) => update({ status: e.currentTarget.value })}>
+  <div class="row">
+    <select value={report.status} onchange={(e) => update({ status: e.currentTarget.value })} aria-label="Status">
       {#each STATUSES as s (s)}<option>{s}</option>{/each}
     </select>
-    <input type="url" bind:value={issueUrl} placeholder="Issue URL" />
-    <button>Save link</button>
-    {#if report.issue_url}<a href={report.issue_url} rel="noopener noreferrer">Open issue</a>{/if}
-  </form>
-  <p><button onclick={remove}>Delete report</button></p>
-
-  {#if !report.issue_url}
-    <CreateIssue {projectId} {reportId} onCreated={(r) => { report = r; issueUrl = r.issue_url ?? ""; }} />
-  {/if}
+    <IssueButton {issues} {report} onCreated={(r) => (report = r)} />
+  </div>
 
   <h2>Recent tool calls</h2>
   {#if calls.length === 0}
@@ -98,5 +93,7 @@ const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? nu
 
   <h2>Context</h2>
   <pre>{JSON.stringify(context, null, 2)}</pre>
+
+  <p><button onclick={remove}>Delete report</button></p>
 {/if}
 {#if error}<p class="error">{error}</p>{/if}

@@ -155,6 +155,35 @@ async function githubGet<T>(f: Fetch, token: string, path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** The label every issue Brutal files carries, made in the repo or team when it's missing. */
+export const LABEL = {
+  name: "Brutal",
+  color: "000000",
+  description: "Filed from an agent's report in Brutal",
+};
+
+/**
+ * Makes sure the repo has the label; false when it can't (no push access, say), and the issue
+ * is filed without it. Never fails the issue.
+ */
+async function githubLabel(f: Fetch, token: string, repo: string): Promise<boolean> {
+  try {
+    const headers = githubHeaders(token);
+    const found = await f(`${GITHUB_API}/repos/${repo}/labels/${LABEL.name}`, { headers });
+    if (found.ok) return true;
+    if (found.status !== 404) return false;
+    const made = await f(`${GITHUB_API}/repos/${repo}/labels`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(LABEL),
+    });
+    // 422: it exists after all (made meanwhile).
+    return made.ok || made.status === 422;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * GitHub through a GitHub App's user access tokens: the token can reach only repos where the
  * app is installed and the person has access, with the app's permissions (Issues, Metadata).
@@ -226,10 +255,11 @@ const github: Provider = {
     if (!/^[\w.-]+\/[\w.-]+$/.test(target)) {
       throw new IntegrationError("Pick a repository (owner/repo).", 400);
     }
+    const labelled = await githubLabel(f, token, target);
     const res = await f(`${GITHUB_API}/repos/${target}/issues`, {
       method: "POST",
       headers: { ...githubHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify(issue),
+      body: JSON.stringify(labelled ? { ...issue, labels: [LABEL.name] } : issue),
     });
     if (res.status === 401)
       throw new IntegrationError("Reconnect GitHub: it refused the token.", 409);
@@ -285,6 +315,43 @@ async function linearQuery<T>(
     throw new IntegrationError(`Linear refused: ${error?.message ?? `HTTP ${res.status}`}.`, 502);
   }
   return data.data;
+}
+
+/**
+ * The id of a "Brutal" label the team can use (the workspace's or the team's own), made in the
+ * team when there's none; null when Linear won't, and the issue is filed without it.
+ */
+async function linearLabel(f: Fetch, token: string, teamId: string): Promise<string | null> {
+  try {
+    const found = await linearQuery<{
+      issueLabels: { nodes: { id: string; team: { id: string } | null }[] };
+    }>(
+      f,
+      token,
+      "query ($name: String!) { issueLabels(first: 50, filter: { name: { eqIgnoreCase: $name } }) { nodes { id team { id } } } }",
+      { name: LABEL.name },
+    );
+    const usable = found.issueLabels.nodes.find((l) => !l.team || l.team.id === teamId);
+    if (usable) return usable.id;
+    const made = await linearQuery<{
+      issueLabelCreate: { success: boolean; issueLabel: { id: string } | null };
+    }>(
+      f,
+      token,
+      "mutation ($input: IssueLabelCreateInput!) { issueLabelCreate(input: $input) { success issueLabel { id } } }",
+      {
+        input: {
+          name: LABEL.name,
+          color: `#${LABEL.color}`,
+          description: LABEL.description,
+          teamId,
+        },
+      },
+    );
+    return made.issueLabelCreate.issueLabel?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Linear through an OAuth2 app with `read` and `issues:create`, acting as the person. */
@@ -348,13 +415,21 @@ const linear: Provider = {
       .sort((a, b) => a.name.localeCompare(b.name));
   },
   async createIssue(f, token, target, issue) {
+    const labelId = await linearLabel(f, token, target);
     const data = await linearQuery<{
       issueCreate: { success: boolean; issue: { url: string } | null };
     }>(
       f,
       token,
       "mutation ($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { url } } }",
-      { input: { teamId: target, title: issue.title, description: issue.body } },
+      {
+        input: {
+          teamId: target,
+          title: issue.title,
+          description: issue.body,
+          ...(labelId ? { labelIds: [labelId] } : {}),
+        },
+      },
     );
     if (!data.issueCreate.success || !data.issueCreate.issue) {
       throw new IntegrationError("Linear didn't create the issue.", 502);

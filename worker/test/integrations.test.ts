@@ -34,7 +34,13 @@ function fakeProviders() {
     linear: { access: "lin-access-1", refresh: "lin-refresh-1" },
     refreshes: 0,
     revoked: [] as string[],
-    issues: [] as { where: string; title: string; body: string }[],
+    issues: [] as { where: string; title: string; body: string; labels?: string[] }[],
+    /** Repos with a Brutal label, and whether making one is refused (no push access). */
+    githubLabels: new Set<string>(),
+    githubLabelRefused: false,
+    /** Linear's Brutal labels (null team: the workspace's), and whether making one is refused. */
+    linearLabels: [] as { id: string; team: { id: string } | null }[],
+    linearLabelRefused: false,
     tokenRequests: [] as URLSearchParams[],
   };
   const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -89,8 +95,23 @@ function fakeProviders() {
         repositories: [{ full_name: "octo/z" }, { full_name: "octo/a" }],
       });
     }
+    if (key === "GET api.github.com/repos/octo/a/labels/Brutal") {
+      return s.githubLabels.has("octo/a")
+        ? json({ name: "Brutal" })
+        : json({ message: "Not Found" }, 404);
+    }
+    if (key === "POST api.github.com/repos/octo/a/labels") {
+      if (s.githubLabelRefused) return json({ message: "Resource not accessible" }, 403);
+      expect(JSON.parse(String(init.body))).toMatchObject({ name: "Brutal" });
+      s.githubLabels.add("octo/a");
+      return json({ name: "Brutal" }, 201);
+    }
     if (key === "POST api.github.com/repos/octo/a/issues") {
-      const body = JSON.parse(String(init.body)) as { title: string; body: string };
+      const body = JSON.parse(String(init.body)) as {
+        title: string;
+        body: string;
+        labels?: string[];
+      };
       s.issues.push({ where: "octo/a", ...body });
       return json({ number: 1, html_url: "https://github.com/octo/a/issues/1" }, 201);
     }
@@ -124,15 +145,36 @@ function fakeProviders() {
       if (auth !== `Bearer ${s.linear.access}`) return json({ errors: [{ message: "auth" }] }, 401);
       const { query, variables } = JSON.parse(String(init.body)) as {
         query: string;
-        variables: { input?: { teamId: string; title: string; description: string } };
+        variables: {
+          input?: {
+            teamId: string;
+            title: string;
+            description: string;
+            labelIds?: string[];
+            name?: string;
+          };
+        };
       };
+      if (query.includes("issueLabelCreate") && variables.input) {
+        if (s.linearLabelRefused) return json({ errors: [{ message: "Forbidden" }] });
+        const made = {
+          id: `label-${s.linearLabels.length + 1}`,
+          team: { id: variables.input.teamId },
+        };
+        expect(variables.input.name).toBe("Brutal");
+        s.linearLabels.push(made);
+        return json({ data: { issueLabelCreate: { success: true, issueLabel: { id: made.id } } } });
+      }
+      if (query.includes("issueLabels")) {
+        return json({ data: { issueLabels: { nodes: s.linearLabels } } });
+      }
       if (query.includes("organization")) return json({ data: { organization: { name: "Acme" } } });
       if (query.includes("teams")) {
         return json({ data: { teams: { nodes: [{ id: "team-1", name: "Core", key: "COR" }] } } });
       }
       if (query.includes("issueCreate") && variables.input) {
-        const { teamId, title, description } = variables.input;
-        s.issues.push({ where: teamId, title, body: description });
+        const { teamId, title, description, labelIds } = variables.input;
+        s.issues.push({ where: teamId, title, body: description, labels: labelIds });
         return json({
           data: {
             issueCreate: { success: true, issue: { url: "https://linear.app/acme/issue/COR-1" } },
@@ -168,6 +210,19 @@ async function setup(env: Record<string, unknown> = SECRETS) {
 }
 
 type Setup = Awaited<ReturnType<typeof setup>>;
+
+/** A fresh ingest key for the project, to file more reports. */
+async function ingestKey(t: Setup): Promise<string> {
+  return (
+    (await (
+      await t.h.call(`/api/projects/${t.project.id}/keys`, {
+        method: "POST",
+        body: { kind: "ingest", name: `i${Math.random()}` },
+        cookie: t.cookie,
+      })
+    ).json()) as { secret: string }
+  ).secret;
+}
 
 /** Starts connecting; returns the state and where the provider would send the browser. */
 async function connect(t: Setup, provider: string, cookie = t.cookie) {
@@ -386,6 +441,9 @@ describe("integrations", () => {
     );
     expect(issue?.body).not.toContain("@octocat");
     expect(issue?.body).toContain("`1.2.3`");
+    // The repo had no Brutal label: it's made, and the issue carries it.
+    expect(issue?.labels).toEqual(["Brutal"]);
+    expect(t.fake.s.githubLabels.has("octo/a")).toBe(true);
 
     const stored = (await (
       await t.h.call(`/api/projects/${t.project.id}/reports/${t.reportId}`, { cookie: t.cookie })
@@ -424,6 +482,44 @@ describe("integrations", () => {
       "https://linear.app/acme/issue/COR-1",
     );
     expect(t.fake.s.issues[0]?.where).toBe("team-1");
+    // No Brutal label yet: one is made in the team and put on the issue.
+    expect(t.fake.s.issues[0]?.labels).toEqual(["label-1"]);
+  });
+
+  test("an existing Brutal label is reused, and one that can't be made doesn't stop the issue", async () => {
+    const t = await setup();
+    const gh = await connected(t, "github");
+    const lin = await connected(t, "linear");
+    const file = async (integration: string, target: string) => {
+      const filed = (await (
+        await t.h.keyed(await ingestKey(t), "/v1/reports", {
+          method: "POST",
+          body: JSON.stringify(report),
+        })
+      ).json()) as { id: string };
+      return t.h.call(`/api/projects/${t.project.id}/reports/${filed.id}/issue`, {
+        method: "POST",
+        body: { integration, target },
+        cookie: t.cookie,
+      });
+    };
+
+    // Linear: the workspace already has one; it's used, and nothing is made.
+    t.fake.s.linearLabels.push({ id: "ws-label", team: null });
+    expect((await file(lin, "team-1")).status).toBe(201);
+    expect(t.fake.s.issues.at(-1)?.labels).toEqual(["ws-label"]);
+    expect(t.fake.s.linearLabels).toHaveLength(1);
+
+    // GitHub without push access: the label can't be made, the issue is filed without it.
+    t.fake.s.githubLabelRefused = true;
+    expect((await file(gh, "octo/a")).status).toBe(201);
+    expect(t.fake.s.issues.at(-1)?.labels).toBeUndefined();
+
+    // Linear refusing to make a label: the same.
+    t.fake.s.linearLabels.length = 0;
+    t.fake.s.linearLabelRefused = true;
+    expect((await file(lin, "team-1")).status).toBe(201);
+    expect(t.fake.s.issues.at(-1)?.labels).toBeUndefined();
   });
 
   test("Linear's authorize URL asks for read and issues:create", async () => {

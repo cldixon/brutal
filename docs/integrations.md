@@ -1,8 +1,16 @@
 # Integrations: issues in GitHub and Linear
 
-A person connects GitHub or Linear once (the Projects page, under Integrations, or "Connect …"
-on a report), then creates an issue from any report in their projects with **Create issue** on
-the report's page. The issue's link is set on the report and its status becomes `linked`.
+A person connects GitHub or Linear once (the Projects page, under Integrations), then files an
+issue from any report in their projects with **Create issue**, on the report's page or its row
+in the project's reports. The issue's link is set on the report, its status becomes `linked`,
+and the button becomes **Open issue**.
+
+The button is greyed out until the person has a connection. It files where the project's last
+issue went, or, before there is one, into the only place there is (one connection with one repo
+or team); otherwise the first click asks, and its ▾ picks another place any time. Every issue
+carries a **Brutal** label: Brutal makes it in the repo or team when it's missing, and when it
+can't (no push access on GitHub; a Linear workspace that won't let the app make labels) the
+issue is filed without it. In Linear, a workspace label named Brutal is used when there is one.
 
 The code is `worker/src/integrations.ts` (routes, providers, token sealing) and
 `worker/src/issue-body.ts` (the issue's title and body). Until the secrets below are set, both
@@ -91,8 +99,9 @@ Linear both accept a loopback http callback) and put the same names in `worker/.
 - `GET /api/integrations/:id/targets`: GitHub repositories (`/user/installations` and each
   installation's repositories) or Linear teams.
 - `GET /api/projects/:project/issue-target`: the project's default, the last target used.
-- `POST /api/projects/:project/reports/:id/issue` with `{ integration, target }`: creates the
-  issue, sets the report's `issue_url` and status `linked`, and remembers the target.
+- `POST /api/projects/:project/reports/:id/issue` with `{ integration, target }`: makes sure of
+  the Brutal label (best effort), creates the issue with it, sets the report's `issue_url` and
+  status `linked`, and remembers the target.
 
 Tokens close to expiry are refreshed before use, keeping a rotated refresh token; if refreshing
 fails the person is asked to reconnect (409).
