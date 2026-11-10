@@ -72,27 +72,24 @@ h2 {
   font-weight: 700;
   line-height: var(--brutal-leading-tight);
 }
-/* The agents' reports: data, not prose, so a dark monospace panel like a log. */
+/* The agents' reports: their words set like code, the kind and tool under them in grey. */
 .reports {
-  margin: 0;
-  padding: var(--brutal-space-1) var(--brutal-space-4);
-  list-style: none;
-  background: var(--brutal-color-ink);
-  color: var(--brutal-color-paper);
-  font-family: var(--brutal-font-mono);
-  font-size: var(--brutal-text-sm);
-  line-height: 1.5;
-}
-.reports li {
-  padding-block: var(--brutal-space-3);
+  padding-left: var(--brutal-space-4);
 }
 .reports li + li {
-  border-top: var(--brutal-rule-hair) solid var(--brutal-color-muted);
+  margin-top: var(--brutal-space-3);
+}
+.said {
+  padding: 0.1em 0.35em;
+  background: var(--brutal-color-tint);
+  line-height: 1.8;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .report-meta {
   display: block;
-  margin-bottom: var(--brutal-space-1);
-  color: var(--brutal-color-muted-inverse);
+  color: var(--brutal-color-muted);
+  font-size: var(--brutal-text-sm);
 }
 .cta {
   display: inline-flex;
