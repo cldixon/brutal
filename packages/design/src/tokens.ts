@@ -4,11 +4,13 @@
  * the system's fonts for everything else, and the wordmark's extrusion. tokens.css must say the same (test/tokens.test.ts checks it).
  */
 export const TOKENS = {
-  // Colour: black and white, a grey for secondary text (7:1 on paper) and a tint for code.
+  // Colour: black and white, a grey for secondary text (7:1 on paper), a tint for code, and a
+  // grey for secondary text on black (9:1 on ink).
   "color-ink": "#000",
   "color-paper": "#fff",
   "color-muted": "#555",
   "color-tint": "#f2f2f2",
+  "color-muted-inverse": "#aaa",
 
   // Type
   "font-display": '"Archivo Black", "Arial Black", Impact, sans-serif',

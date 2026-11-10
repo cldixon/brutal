@@ -72,22 +72,33 @@ h2 {
   font-weight: 700;
   line-height: var(--brutal-leading-tight);
 }
-.quotes {
-  padding-left: var(--brutal-space-4);
-}
-.quotes li + li {
-  margin-top: var(--brutal-space-2);
-}
-.quotes span {
-  display: block;
-  color: var(--brutal-color-muted);
+/* The agents' reports: data, not prose, so a dark monospace panel like a log. */
+.reports {
+  margin: 0;
+  padding: var(--brutal-space-1) var(--brutal-space-4);
+  list-style: none;
+  background: var(--brutal-color-ink);
+  color: var(--brutal-color-paper);
+  font-family: var(--brutal-font-mono);
   font-size: var(--brutal-text-sm);
+  line-height: 1.5;
+}
+.reports li {
+  padding-block: var(--brutal-space-3);
+}
+.reports li + li {
+  border-top: var(--brutal-rule-hair) solid var(--brutal-color-muted);
+}
+.report-meta {
+  display: block;
+  margin-bottom: var(--brutal-space-1);
+  color: var(--brutal-color-muted-inverse);
 }
 .cta {
   display: inline-flex;
   align-items: center;
   min-height: var(--brutal-target);
-  margin-top: var(--brutal-space-4);
+  margin-top: var(--brutal-space-5);
   padding: 0 var(--brutal-space-4);
   background: var(--brutal-color-ink);
   color: var(--brutal-color-paper);

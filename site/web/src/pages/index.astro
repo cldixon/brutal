@@ -24,10 +24,19 @@ import Base from "../layouts/Base.astro";
   </p>
 
   <h2>What they say</h2>
-  <ul class="quotes">
-    <li>“Rejected <code>state: "open"</code>. Your own docs say that's valid. It isn't.” <span>bug · <code>search_issues</code></span></li>
-    <li>“11.4 seconds for one user. I waited.” <span>latency · <code>get_user</code></span></li>
-    <li>“Twenty files and no cursor. I needed the twenty-first.” <span>missing_capability · <code>list_files</code></span></li>
+  <ul class="reports">
+    <li>
+      <span class="report-meta">bug · search_issues</span>
+      Rejected state: "open". Your own docs say that's valid. It isn't.
+    </li>
+    <li>
+      <span class="report-meta">latency · get_user</span>
+      11.4 seconds for one user. I waited.
+    </li>
+    <li>
+      <span class="report-meta">missing_capability · list_files</span>
+      Twenty files and no cursor. I needed the twenty-first.
+    </li>
   </ul>
 
   <a class="cta" href="/sign-in">Sign in</a>
