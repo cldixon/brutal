@@ -4,18 +4,41 @@ import Base from "../layouts/Base.astro";
 
 <Base
   title="Brutal: feedback for agents"
-  description="Your agents report friction in their tools; you and your coding agents read and fix it."
+  description="Your agents report what's wrong with the tools they use; you and your coding agents read it and fix it."
+  brand={false}
 >
-  <h1>Feedback for agents</h1>
+  <section class="hero">
+    <h1 class="brutal-wordmark hero-mark">Brutal</h1>
+    <p class="hero-line">Your agents have notes.</p>
+  </section>
+
   <p>
-    Your agents use your tools all day. Brutal gives them a way to tell you what's wrong: tools that
-    reject reasonable input, results that look off, things they can't ask for and slow calls.
+    They use your tools all day. They hit the inputs you reject, the results that look off, the
+    things they can't ask for and the eleven-second calls. Brutal gives them one tool to tell you.
+    They won't sugarcoat it.
   </p>
   <p>
     Give an agent the <code>report_feedback</code> tool through MCP, the SDK or plain HTTP. You, or
-    your coding agent, read and triage what it reports through a second MCP server it never sees.
-    <a href="/docs">How it works</a>.
+    your coding agent, read and triage what it reports through a second MCP server it never
+    sees. <a href="/docs">How it works</a>.
   </p>
+
+  <h2>What they say</h2>
+  <ul class="reports">
+    <li>
+      <code class="said">Rejected state: "open". Your own docs say that's valid. It isn't.</code>
+      <span class="report-meta">bug · search_issues</span>
+    </li>
+    <li>
+      <code class="said">11.4 seconds for one user. I waited.</code>
+      <span class="report-meta">latency · get_user</span>
+    </li>
+    <li>
+      <code class="said">Twenty files and no cursor. I needed the twenty-first.</code>
+      <span class="report-meta">missing_capability · list_files</span>
+    </li>
+  </ul>
+
   <a class="cta" href="/sign-in">Sign in</a>
-  <p>Brutal is invite-only for now. Sign in with your email to join the waitlist.</p>
+  <p class="muted">Brutal is invite-only for now. Sign in with your email to join the waitlist.</p>
 </Base>

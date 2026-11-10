@@ -1,0 +1,39 @@
+/*
+ * Brutal's design tokens as CSS custom properties (the same list as tokens.ts; a test keeps the
+ * two equal). Import once, before any stylesheet that uses them.
+ */
+:root {
+  --brutal-color-ink: #000;
+  --brutal-color-paper: #fff;
+  --brutal-color-muted: #555;
+  --brutal-color-tint: #f2f2f2;
+
+  --brutal-font-display: "Archivo Black", "Arial Black", Impact, sans-serif;
+  --brutal-font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --brutal-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --brutal-text-sm: 0.9375rem;
+  --brutal-text-base: 1.0625rem;
+  --brutal-text-lg: 1.25rem;
+  --brutal-text-xl: 1.75rem;
+  --brutal-text-2xl: 2.5rem;
+  --brutal-leading-tight: 1.05;
+  --brutal-leading-body: 1.6;
+
+  --brutal-space-1: 0.25rem;
+  --brutal-space-2: 0.5rem;
+  --brutal-space-3: 1rem;
+  --brutal-space-4: 1.5rem;
+  --brutal-space-5: 2.5rem;
+  --brutal-space-6: 4rem;
+
+  --brutal-rule-hair: 1px;
+
+  --brutal-extrude-step: 0.0075em;
+  --brutal-extrude-stroke: max(1.5px, 0.03em);
+
+  --brutal-measure: 42rem;
+  --brutal-gutter: 1.5rem;
+  --brutal-target: 44px;
+
+  color-scheme: light;
+}

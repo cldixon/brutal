@@ -8,9 +8,9 @@ interface Env {
 }
 
 export const HEADERS: Record<string, string> = {
-  // No scripts, no third parties: HTML and one stylesheet.
+  // No scripts, no third parties: HTML, one stylesheet and the self-hosted display font.
   "Content-Security-Policy":
-    "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
 };

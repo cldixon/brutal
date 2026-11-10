@@ -1,75 +1,133 @@
-/* Minimal: black on white, system fonts, plain links (the app's look). */
-:root {
-  color: #111;
-  background: #fff;
-  font:
-    16px / 1.55 system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
+/*
+ * Plain on purpose: black on white, system fonts, plain links. The one loud thing is the
+ * wordmark (@brutal-ai/design's .brutal-wordmark), with Archivo Black echoed in the headings.
+ * Every value is a token from @brutal-ai/design (tokens.css, imported first by Base.astro).
+ */
+html {
+  color: var(--brutal-color-ink);
+  background: var(--brutal-color-paper);
+  font: var(--brutal-text-base) / var(--brutal-leading-body) var(--brutal-font-body);
 }
 body {
-  margin: 0;
-}
-main {
-  max-width: 42rem;
+  max-width: var(--brutal-measure);
   margin: 0 auto;
-  padding: 1.5rem 1rem 4rem;
+  padding: var(--brutal-space-4) var(--brutal-gutter) var(--brutal-space-6);
 }
 a {
   color: inherit;
 }
-nav {
+code,
+pre {
+  font-family: var(--brutal-font-mono);
+  font-size: 0.9em;
+}
+
+.site-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
 }
-nav .brand {
+.site-header nav {
+  display: flex;
+  gap: var(--brutal-space-3);
+  margin-left: auto;
+}
+.brand {
+  font-family: var(--brutal-font-display);
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.site-footer {
+  margin-top: var(--brutal-space-6);
+  color: var(--brutal-color-muted);
+  font-size: var(--brutal-text-sm);
+}
+
+h1,
+h2 {
+  font-family: var(--brutal-font-display);
+  font-weight: 400;
+  line-height: var(--brutal-leading-tight);
+}
+h1 {
+  font-size: var(--brutal-text-2xl);
+  margin: var(--brutal-space-6) 0 var(--brutal-space-3);
+}
+h2 {
+  font-size: var(--brutal-text-lg);
+  margin: var(--brutal-space-5) 0 var(--brutal-space-2);
+}
+
+/* Landing */
+.hero {
+  margin: var(--brutal-space-6) 0 var(--brutal-space-5);
+}
+.hero .hero-mark {
+  margin: 0;
+  font-size: clamp(3.5rem, 15vw, 8.5rem);
+}
+.hero-line {
+  margin: var(--brutal-space-4) 0 0;
+  font-size: var(--brutal-text-xl);
+  font-weight: 700;
+  line-height: var(--brutal-leading-tight);
+}
+/* The agents' reports: their words set like code, the kind and tool under them in grey. */
+.reports {
+  padding-left: var(--brutal-space-4);
+}
+.reports li + li {
+  margin-top: var(--brutal-space-3);
+}
+.said {
+  padding: 0.1em 0.35em;
+  background: var(--brutal-color-tint);
+  line-height: 1.8;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.report-meta {
+  display: block;
+  color: var(--brutal-color-muted);
+  font-size: var(--brutal-text-sm);
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--brutal-target);
+  margin-top: var(--brutal-space-5);
+  padding: 0 var(--brutal-space-4);
+  background: var(--brutal-color-ink);
+  color: var(--brutal-color-paper);
   font-weight: 700;
   text-decoration: none;
 }
-h1 {
-  font-size: 2rem;
-  line-height: 1.2;
-  margin: 3rem 0 1rem;
+.muted {
+  color: var(--brutal-color-muted);
 }
-h2 {
-  font-size: 1.1rem;
-  margin: 2rem 0 0.5rem;
-}
-code {
-  font-size: 0.92em;
+
+/* Docs */
+.prose :not(pre) > code {
+  padding: 0.05em 0.25em;
+  background: var(--brutal-color-tint);
 }
 pre {
   overflow-x: auto;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  font-size: 0.85rem;
+  padding: var(--brutal-space-3);
+  background: var(--brutal-color-tint);
+  font-size: var(--brutal-text-sm);
 }
 table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.92rem;
   display: block;
   overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--brutal-text-sm);
 }
 th,
 td {
+  padding: var(--brutal-space-1) var(--brutal-space-3) var(--brutal-space-1) 0;
   text-align: left;
   vertical-align: top;
-  padding: 0.35rem 0.75rem 0.35rem 0;
-  border-bottom: 1px solid #ddd;
-}
-.cta {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.45rem 0.9rem;
-  background: #111;
-  color: #fff;
-  text-decoration: none;
-}
-footer {
-  margin-top: 4rem;
-  color: #666;
-  font-size: 0.9rem;
+  border-bottom: var(--brutal-rule-hair) solid var(--brutal-color-muted);
 }

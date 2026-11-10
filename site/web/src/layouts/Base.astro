@@ -1,13 +1,22 @@
 ---
-/** Every page: the name, the one way into the app (Sign in), the page, a quiet footer. */
+/**
+ * Every page: Docs and Sign in, the page, a quiet footer. Pages other than the landing page
+ * (whose hero is the wordmark) also get the name, linking home. The look comes from
+ * @brutal-ai/design's tokens; site.css only lays the pages out.
+ */
+import "@brutal-ai/design/tokens.css";
+import "@brutal-ai/design/fonts.css";
+import "@brutal-ai/design/wordmark.css";
 import "../styles/site.css";
 
 interface Props {
   title: string;
   description: string;
   noindex?: boolean;
+  /** Show the name in the header; the landing page leaves it to its hero. */
+  brand?: boolean;
 }
-const { title, description, noindex = false } = Astro.props;
+const { title, description, noindex = false, brand = true } = Astro.props;
 ---
 
 <!doctype html>
@@ -20,13 +29,16 @@ const { title, description, noindex = false } = Astro.props;
     {noindex && <meta name="robots" content="noindex" />}
   </head>
   <body>
-    <main>
-      <nav>
-        <a class="brand" href="/">Brutal</a>
-        <span><a href="/docs">Docs</a> · <a href="/sign-in">Sign in</a></span>
+    <header class="site-header">
+      {brand && <a class="brand" href="/">Brutal</a>}
+      <nav aria-label="Site">
+        <a href="/docs">Docs</a>
+        <a href="/sign-in">Sign in</a>
       </nav>
+    </header>
+    <main>
       <slot />
-      <footer>Brutal · feedback for agents</footer>
     </main>
+    <footer class="site-footer">Brutal · feedback for agents</footer>
   </body>
 </html>
