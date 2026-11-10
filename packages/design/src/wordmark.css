@@ -1,0 +1,55 @@
+/*
+ * The wordmark: "Brutal" in Archivo Black capitals, a paper-white face outlined in ink, and a
+ * solid ink extrusion down and to the right (18 steps of --brutal-extrude-step, so its depth
+ * scales with the font size). Size it with font-size; the text stays real text.
+ */
+.brutal-wordmark {
+  font-family: var(--brutal-font-display);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--brutal-color-paper);
+  -webkit-text-stroke: var(--brutal-extrude-stroke) var(--brutal-color-ink);
+  paint-order: stroke fill;
+  text-shadow:
+    calc(var(--brutal-extrude-step) * 1) calc(var(--brutal-extrude-step) * 1) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 2) calc(var(--brutal-extrude-step) * 2) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 3) calc(var(--brutal-extrude-step) * 3) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 4) calc(var(--brutal-extrude-step) * 4) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 5) calc(var(--brutal-extrude-step) * 5) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 6) calc(var(--brutal-extrude-step) * 6) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 7) calc(var(--brutal-extrude-step) * 7) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 8) calc(var(--brutal-extrude-step) * 8) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 9) calc(var(--brutal-extrude-step) * 9) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 10) calc(var(--brutal-extrude-step) * 10) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 11) calc(var(--brutal-extrude-step) * 11) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 12) calc(var(--brutal-extrude-step) * 12) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 13) calc(var(--brutal-extrude-step) * 13) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 14) calc(var(--brutal-extrude-step) * 14) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 15) calc(var(--brutal-extrude-step) * 15) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 16) calc(var(--brutal-extrude-step) * 16) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 17) calc(var(--brutal-extrude-step) * 17) 0
+    var(--brutal-color-ink),
+    calc(var(--brutal-extrude-step) * 18) calc(var(--brutal-extrude-step) * 18) 0
+    var(--brutal-color-ink);
+  /* Room for the extrusion, so it isn't clipped or run into. */
+  padding-right: calc(var(--brutal-extrude-step) * 18);
+  padding-bottom: calc(var(--brutal-extrude-step) * 18);
+}

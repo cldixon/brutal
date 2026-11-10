@@ -1,5 +1,11 @@
 ---
-/** Every page: the name, the one way into the app (Sign in), the page, a quiet footer. */
+/**
+ * Every page: the wordmark (home), Docs and Sign in, the page, a quiet footer. The look comes
+ * from @brutal-ai/design's tokens; site.css only lays the pages out.
+ */
+import "@brutal-ai/design/tokens.css";
+import "@brutal-ai/design/fonts.css";
+import "@brutal-ai/design/wordmark.css";
 import "../styles/site.css";
 
 interface Props {
@@ -20,13 +26,19 @@ const { title, description, noindex = false } = Astro.props;
     {noindex && <meta name="robots" content="noindex" />}
   </head>
   <body>
-    <main>
-      <nav>
-        <a class="brand" href="/">Brutal</a>
-        <span><a href="/docs">Docs</a> · <a href="/sign-in">Sign in</a></span>
+    <header class="site-header">
+      <a class="brutal-wordmark brand" href="/" aria-label="Brutal, home">Brutal</a>
+      <nav aria-label="Site">
+        <a href="/docs">Docs</a>
+        <a class="button" href="/sign-in">Sign in</a>
       </nav>
+    </header>
+    <main>
       <slot />
-      <footer>Brutal · feedback for agents</footer>
     </main>
+    <footer class="site-footer">
+      <span>Brutal · feedback for agents</span>
+      <a href="/docs">Docs</a>
+    </footer>
   </body>
 </html>

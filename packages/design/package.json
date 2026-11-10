@@ -1,0 +1,22 @@
+{
+  "name": "@brutal-ai/design",
+  "private": true,
+  "type": "module",
+  "description": "Brutal's design tokens and its one typeface, shared by every surface: the site, and in time the app, the consent page and the portal.",
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./fonts.css": "./src/fonts.css",
+    "./wordmark.css": "./src/wordmark.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@fontsource/archivo-black": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.3"
+  }
+}

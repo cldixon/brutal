@@ -20,7 +20,11 @@ the portal on admin.<domain>, `mailFrom` on a sending subdomain once one is set 
   two MCP servers, keys, connecting, the SDK and the HTTP API; hosts from `deploy.config.ts`). No
   host of its own; the app answers `/` from it for people signed out (no cookie forwarded,
   `Vary: Cookie`), `/docs` for everyone and `/_astro/*`, through the SITE service binding. Static,
-  no script; the SPA's router lets `/docs` load as a page.
+  no script; the SPA's router lets `/docs` load as a page. Its look is **`@brutal-ai/design`**
+  (`packages/design`): the design tokens (`tokens.ts` and `tokens.css`, kept equal by a test),
+  Archivo Black self-hosted (`font-src 'self'`) and `.brutal-wordmark`, the extruded "BRUTAL" the
+  site is built around; black on white, heavy rules, hard shadows. The app, the consent page and
+  the portal don't use it yet.
 - **`brutal-admin`** (`admin/`): the operator's portal on its own host, admin.thatsbrutal.fyi, behind
   Cloudflare Access (one-time PIN, OPERATOR_EMAIL only, 2 hours; `admin/scripts/deploy.ts` makes
   sure of Access, deploys, then sets OPERATOR_EMAIL on the portal and the app). Server-rendered,

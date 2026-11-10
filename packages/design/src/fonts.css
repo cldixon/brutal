@@ -1,0 +1,6 @@
+/*
+ * The one web font: Archivo Black (SIL Open Font License 1.1), Latin only, self-hosted from
+ * @fontsource so pages need no third party (font-src 'self'). Bundlers copy the file next to the
+ * stylesheet.
+ */
+@import "@fontsource/archivo-black/latin-400.css";

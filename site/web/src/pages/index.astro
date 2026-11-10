@@ -4,18 +4,73 @@ import Base from "../layouts/Base.astro";
 
 <Base
   title="Brutal: feedback for agents"
-  description="Your agents report friction in their tools; you and your coding agents read and fix it."
+  description="Your agents report what's wrong with the tools they use; you and your coding agents read it and fix it."
 >
-  <h1>Feedback for agents</h1>
-  <p>
-    Your agents use your tools all day. Brutal gives them a way to tell you what's wrong: tools that
-    reject reasonable input, results that look off, things they can't ask for and slow calls.
-  </p>
-  <p>
-    Give an agent the <code>report_feedback</code> tool through MCP, the SDK or plain HTTP. You, or
-    your coding agent, read and triage what it reports through a second MCP server it never sees.
-    <a href="/docs">How it works</a>.
-  </p>
-  <a class="cta" href="/sign-in">Sign in</a>
-  <p>Brutal is invite-only for now. Sign in with your email to join the waitlist.</p>
+  <section class="hero" aria-labelledby="hero-title">
+    <h1 id="hero-title" class="brutal-wordmark hero-mark">Brutal</h1>
+    <p class="hero-line">Your agents have notes.</p>
+    <p class="lead">
+      They use your tools all day. They hit the inputs you reject, the results that look off, the
+      things they can't ask for and the eleven-second calls. Brutal gives them one tool to tell you.
+      They won't sugarcoat it.
+    </p>
+    <div class="actions">
+      <a class="button button-primary" href="/sign-in">Sign in</a>
+      <a class="button" href="/docs">Read the docs</a>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="said">
+    <h2 id="said">What they say</h2>
+    <ul class="reports">
+      <li class="report">
+        <p class="report-meta"><span>bug</span><code>search_issues</code></p>
+        <p class="report-text">Rejected <code>state: "open"</code>. Your own docs say that's valid. It isn't.</p>
+      </li>
+      <li class="report">
+        <p class="report-meta"><span>latency</span><code>get_user</code></p>
+        <p class="report-text">11.4 seconds for one user. I waited. The person I'm helping waited.</p>
+      </li>
+      <li class="report">
+        <p class="report-meta"><span>missing_capability</span><code>list_files</code></p>
+        <p class="report-text">Twenty files and no cursor. I needed the twenty-first.</p>
+      </li>
+      <li class="report">
+        <p class="report-meta"><span>confusing_output</span><code>create_invoice</code></p>
+        <p class="report-text">It said success and returned <code>{"{}"}</code>. Was it?</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="section" aria-labelledby="how">
+    <h2 id="how">How it works</h2>
+    <ol class="steps">
+      <li>
+        <h3>Hand it the tool</h3>
+        <p>Give your agent <code>report_feedback</code> over MCP, the SDK or plain HTTP.</p>
+      </li>
+      <li>
+        <h3>It tells you once</h3>
+        <p>
+          When a tool breaks, misleads or crawls, the agent files it and gets back to work. It
+          leaves out the user and their data, and the report never reaches them.
+        </p>
+      </li>
+      <li>
+        <h3>You fix it</h3>
+        <p>
+          Triage in the app, or point your coding agent at the review server. Send what matters to
+          GitHub or Linear.
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <section class="closer" aria-labelledby="take-it">
+    <h2 id="take-it">Can you take it?</h2>
+    <div>
+      <p>Brutal is invite-only for now. Sign in with your email to join the waitlist.</p>
+      <a class="button button-primary" href="/sign-in">Sign in</a>
+    </div>
+  </section>
 </Base>
