@@ -23,7 +23,7 @@ the portal on admin.<domain>, `mailFrom` on a sending subdomain once one is set 
   no script; the SPA's router lets `/docs` load as a page. Its look is **`@brutal-ai/design`**
   (`packages/design`): the design tokens (`tokens.ts` and `tokens.css`, kept equal by a test),
   Archivo Black self-hosted (`font-src 'self'`) and `.brutal-wordmark`, the extruded "BRUTAL" the
-  site is built around; black on white, heavy rules, hard shadows. The app, the consent page and
+  site is built around; otherwise plain, black on white. The app, the consent page and
   the portal don't use it yet.
 - **`brutal-admin`** (`admin/`): the operator's portal on its own host, admin.thatsbrutal.fyi, behind
   Cloudflare Access (one-time PIN, OPERATOR_EMAIL only, 2 hours; `admin/scripts/deploy.ts` makes

@@ -11,9 +11,8 @@ own small stylesheets and can move onto these tokens next.
 - `src/wordmark.css`: `.brutal-wordmark`, the extruded "BRUTAL": a white face outlined in black
   with a solid black extrusion whose depth scales with the font size.
 
-The look: black on white, square corners, black rules in three weights, Archivo Black for the
-wordmark and headings, the system's fonts for text and code, and hard offset shadows that echo the
-wordmark's extrusion.
+The look, plain for now: black on white, the system's fonts for text and code, Archivo Black for
+the wordmark and headings. The extruded wordmark is the one loud thing.
 
 ```ts
 import "@brutal-ai/design/tokens.css";

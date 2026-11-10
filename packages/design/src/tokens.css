@@ -11,13 +11,11 @@
   --brutal-font-display: "Archivo Black", "Arial Black", Impact, sans-serif;
   --brutal-font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --brutal-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --brutal-text-xs: 0.8125rem;
   --brutal-text-sm: 0.9375rem;
   --brutal-text-base: 1.0625rem;
   --brutal-text-lg: 1.25rem;
   --brutal-text-xl: 1.75rem;
   --brutal-text-2xl: 2.5rem;
-  --brutal-text-3xl: clamp(2.5rem, 6vw, 4rem);
   --brutal-leading-tight: 1.05;
   --brutal-leading-body: 1.6;
 
@@ -27,20 +25,13 @@
   --brutal-space-4: 1.5rem;
   --brutal-space-5: 2.5rem;
   --brutal-space-6: 4rem;
-  --brutal-space-7: 6rem;
 
   --brutal-rule-hair: 1px;
-  --brutal-rule: 3px;
-  --brutal-rule-heavy: 6px;
-  --brutal-radius: 0;
 
   --brutal-extrude-step: 0.0075em;
   --brutal-extrude-stroke: max(1.5px, 0.03em);
-  --brutal-shadow: 6px 6px 0 #000;
-  --brutal-shadow-small: 3px 3px 0 #000;
 
   --brutal-measure: 42rem;
-  --brutal-page: 72rem;
   --brutal-gutter: 1.5rem;
   --brutal-target: 44px;
 
